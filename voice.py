@@ -20,10 +20,10 @@ from dotenv import load_dotenv
 import sounddevice as sd
 import soundfile as sf
 
-# Load environment
+# Load   environment
 load_dotenv()
 
-# ── Configuration ───────────────────────────────────────────────────
+# ──     Configuration ───────────────────────────────────────────────────
 
 AUDIO_DIR = Path(__file__).parent / "audio_files"
 AUDIO_DIR.mkdir(exist_ok=True)
