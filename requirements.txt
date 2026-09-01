@@ -1,0 +1,14 @@
+openai
+pymongo
+python-dotenv
+fastapi
+uvicorn[standard]
+httpx
+python-multipart
+sounddevice
+soundfile
+pyaudio
+pygame
+websockets
+edge-tts
+gTTS
