@@ -1,0 +1,2128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mintx Solutions AI — Realtime Voice Studio</title>
+  <meta name="description" content="Ultra low-latency real-time voice streaming assistant for Mintx Solutions powered by OpenAI Realtime WebSocket API.">
+  <link rel="stylesheet" href="/static/css/realtime.css?v=6.7">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
+  <style>
+    /* Critical Inline Guard against aggressive browser cache */
+    svg {
+      max-width: 100%;
+      flex-shrink: 0;
+      box-sizing: border-box;
+    }
+    .mode-switcher {
+      display: inline-flex !important;
+      align-items: center !important;
+      background: rgba(18, 24, 38, 0.85) !important;
+      padding: 0.25rem 0.35rem !important;
+      border-radius: 9999px !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      gap: 0.35rem !important;
+    }
+    .mode-switch-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.45rem !important;
+      padding: 0.35rem 0.85rem !important;
+      border-radius: 9999px !important;
+      border: 1px solid transparent !important;
+      background: transparent !important;
+      color: #94a3b8 !important;
+      font-size: 0.82rem !important;
+      font-weight: 600 !important;
+      cursor: pointer !important;
+      outline: none !important;
+      transition: all 0.2s ease !important;
+    }
+    .mode-switch-btn svg {
+      width: 15px !important;
+      height: 15px !important;
+      min-width: 15px !important;
+      min-height: 15px !important;
+      display: inline-block !important;
+      vertical-align: middle !important;
+    }
+    .mode-switch-btn:hover {
+      color: #fff !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+    }
+    .mode-switch-btn.active {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(59, 130, 246, 0.3)) !important;
+      border: 1px solid rgba(6, 182, 212, 0.55) !important;
+      color: #fff !important;
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.25) !important;
+    }
+    .mode-switch-btn.test-mode-btn.active {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(236, 72, 153, 0.3)) !important;
+      border: 1px solid rgba(168, 85, 247, 0.6) !important;
+      color: #f3e8ff !important;
+      box-shadow: 0 0 16px rgba(168, 85, 247, 0.35) !important;
+    }
+    .btn-voice-teach {
+      border: none !important;
+      background: transparent !important;
+      cursor: pointer !important;
+      padding: 0 !important;
+      outline: none !important;
+      display: inline-block !important;
+    }
+    .btn-voice-teach-inner {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.6rem !important;
+      padding: 0.6rem 1.25rem !important;
+      border-radius: 9999px !important;
+      background: linear-gradient(135deg, #9333ea, #c026d3) !important;
+      color: #fff !important;
+      font-weight: 700 !important;
+      font-size: 0.88rem !important;
+      border: none !important;
+      box-shadow: 0 6px 18px rgba(168, 85, 247, 0.45) !important;
+      transition: all 0.2s ease !important;
+    }
+    .btn-voice-teach:hover .btn-voice-teach-inner {
+      transform: scale(1.03) !important;
+      box-shadow: 0 8px 24px rgba(168, 85, 247, 0.6) !important;
+    }
+    .btn-voice-teach svg, .teach-mic-icon {
+      width: 18px !important;
+      height: 18px !important;
+      min-width: 18px !important;
+      min-height: 18px !important;
+      display: inline-block !important;
+      vertical-align: middle !important;
+      color: #fff !important;
+      flex-shrink: 0 !important;
+    }
+    .btn-sm-ghost {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.4rem !important;
+      padding: 0.35rem 0.75rem !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 8px !important;
+      color: #cbd5e1 !important;
+      font-size: 0.78rem !important;
+      font-weight: 500 !important;
+      cursor: pointer !important;
+      outline: none !important;
+    }
+    .btn-sm-ghost:hover {
+      background: rgba(255, 255, 255, 0.15) !important;
+      color: #fff !important;
+    }
+    .btn-sm-ghost svg {
+      width: 14px !important;
+      height: 14px !important;
+      min-width: 14px !important;
+      min-height: 14px !important;
+      display: inline-block !important;
+      vertical-align: middle !important;
+      flex-shrink: 0 !important;
+    }
+    .voice-train-console {
+      margin-top: 0.5rem;
+      max-width: 820px;
+      margin-left: auto;
+      margin-right: auto;
+      width: 100%;
+    }
+    .starting-greeting-card {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(99, 102, 241, 0.08));
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      transition: border-color 0.2s ease;
+    }
+    .starting-greeting-card:hover {
+      border-color: rgba(16, 185, 129, 0.5);
+    }
+    .greeting-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .greeting-card-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .greeting-badge-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 0.18rem 0.55rem;
+      border-radius: 20px;
+    }
+    .greeting-hint {
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+    .greeting-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .btn-greeting-ctrl {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.28rem 0.6rem;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-greeting-ctrl:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+    }
+    .btn-greeting-ctrl.btn-test-audio {
+      background: rgba(99, 102, 241, 0.2);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #a5b4fc;
+    }
+    .btn-greeting-ctrl.btn-test-audio:hover {
+      background: rgba(99, 102, 241, 0.35);
+      color: #fff;
+    }
+    .greeting-phrase-display {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      font-style: italic;
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 3px solid #10b981;
+      padding: 0.45rem 0.75rem;
+      border-radius: 0 6px 6px 0;
+      line-height: 1.4;
+    }
+    .greeting-presets-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-top: 0.2rem;
+    }
+    .preset-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+    .chip-greeting-preset {
+      font-size: 0.72rem;
+      padding: 0.2rem 0.5rem;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chip-greeting-preset:hover {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+    .greeting-edit-drawer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-top: 0.4rem;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 8px;
+      padding: 0.6rem;
+    }
+    .greeting-input-field {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      color: #f8fafc;
+      font-size: 0.85rem;
+      padding: 0.45rem 0.65rem;
+      outline: none;
+    }
+    .greeting-input-field:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+    }
+    /* ── Interactive Correction Studio & Customized Rules Styles ── */
+    .bridge-correction-studio {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      border-radius: 12px;
+      padding: 0.85rem 1.1rem;
+      margin-bottom: 0.85rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+    .bridge-correction-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.55rem;
+    }
+    .bridge-correction-title {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #e9d5ff;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .bridge-correction-hint {
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+    .bridge-correction-input-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .bridge-speak-btn {
+      background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 0.95rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(168, 85, 247, 0.35);
+    }
+    .bridge-speak-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(168, 85, 247, 0.55);
+    }
+    .bridge-speak-btn.recording {
+      background: #ef4444 !important;
+      animation: pulse 1.2s infinite;
+    }
+    .bridge-correction-input {
+      flex: 1;
+      font-size: 0.85rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      background: rgba(15, 23, 42, 0.85);
+      color: #fff;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .bridge-correction-input:focus {
+      border-color: #a855f7;
+      box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
+    }
+    .bridge-apply-btn {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1.1rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+    }
+    .bridge-apply-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.55);
+    }
+    .bridge-active-rules-container {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.85rem;
+    }
+    .bridge-rules-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+    .bridge-rules-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .bridge-rules-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .rule-item-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 0.55rem 0.85rem;
+      transition: all 0.15s ease;
+    }
+    .rule-item-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(168, 85, 247, 0.25);
+    }
+    .rule-item-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .rule-item-text {
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      line-height: 1.4;
+      flex: 1;
+    }
+    .rule-item-actions {
+      display: flex;
+      gap: 0.35rem;
+      flex-shrink: 0;
+    }
+    .btn-rule-action {
+      font-size: 0.74rem;
+      padding: 0.22rem 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      transition: all 0.15s ease;
+    }
+    .btn-rule-action.modify {
+      background: rgba(168, 85, 247, 0.15);
+      color: #d8b4fe;
+      border-color: rgba(168, 85, 247, 0.35);
+    }
+    .btn-rule-action.modify:hover {
+      background: rgba(168, 85, 247, 0.3);
+      color: #fff;
+    }
+    .btn-rule-action.delete {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+    .btn-rule-action.delete:hover {
+      background: rgba(239, 68, 68, 0.3);
+      color: #fff;
+    }
+    .rule-inline-editor {
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .rule-edit-textarea {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.82rem;
+      padding: 0.45rem;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    .stage-rules-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 0.45rem;
+      padding-top: 0.45rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      flex-wrap: wrap;
+    }
+    .stage-rule-badge {
+      font-size: 0.72rem;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .stage-rules-drawer {
+      margin-top: 0.6rem;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 8px;
+      padding: 0.6rem;
+    }
+  </style>
+</head>
+<body class="state-disconnected">
+  <!-- Quota Exhaustion Alert Banner -->
+  <div id="quota-alert-banner" style="display: none; background: linear-gradient(90deg, #7f1d1d, #991b1b); color: #fecaca; padding: 0.65rem 1.25rem; font-size: 0.85rem; border-bottom: 1px solid #ef4444; align-items: center; justify-content: space-between; z-index: 1000; position: sticky; top: 0;">
+    <div style="display: flex; align-items: center; gap: 0.65rem;">
+      <span style="font-size: 1.1rem;">⚠️</span>
+      <span><strong>OpenAI Credit Quota Exhausted ($0.00):</strong> The AI Realtime model cannot generate responses until credits are recharged or a funded API key is provided.</span>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" style="background: rgba(255,255,255,0.15); color: #fff; padding: 0.25rem 0.65rem; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.78rem;">Recharge Credits ↗</a>
+      <button type="button" id="btn-banner-update-key" style="background: #ef4444; color: #fff; border: none; padding: 0.25rem 0.65rem; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.78rem;">Update Key</button>
+    </div>
+  </div>
+
+  <!-- Ambient Backlight Glow -->
+  <div class="ambient-glow" aria-hidden="true"></div>
+
+  <div class="app-container">
+    <!-- ── Top Navigation Bar ─────────────────────────────────────────────── -->
+    <header class="top-nav">
+      <div class="brand-section">
+        <div class="brand-logo-badge" id="brand-logo-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <h1 class="brand-name">Mintx Solutions AI</h1>
+          <span class="brand-subtitle">Realtime Voice Studio</span>
+        </div>
+      </div>
+
+      <!-- Mode Switcher: Live Call vs Test & Voice Train -->
+      <div class="mode-switcher" id="mode-switcher">
+        <button type="button" class="mode-switch-btn active" id="mode-btn-live" title="Standard Realtime Phone Call Mode">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+          <span>Live Call</span>
+        </button>
+        <button type="button" class="mode-switch-btn test-mode-btn" id="mode-btn-test" title="Interactive Voice Train & Test Mode">
+          <span class="test-sparkle-dot"></span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 2v7.31M14 2v7.31M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/>
+            <path d="M5.52 16h12.96"/>
+          </svg>
+          <span>🧪 Test & Voice Train</span>
+        </button>
+      </div>
+
+      <div class="nav-metrics">
+        <!-- Live Call Recording Status Pill & Timer -->
+        <div class="rec-status-pill" id="rec-status-pill" style="display: none;" title="Recording 2-way conversation audio & transcript">
+          <span class="rec-pulse-dot"></span>
+          <span class="rec-pill-text">REC</span>
+          <span class="rec-pill-timer" id="rec-pill-timer">00:00</span>
+        </div>
+
+        <!-- Live Status Pill -->
+        <div class="status-pill" id="status-pill">
+          <span class="status-dot"></span>
+          <span id="status-text">Disconnected</span>
+        </div>
+
+        <!-- Latency HUD -->
+        <div class="metric-badge" id="metric-latency" title="WebSocket Roundtrip Latency">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          <span id="metric-ping-val">-- ms</span>
+        </div>
+
+        <!-- Voice Selector Switcher in Top Navigation -->
+        <div class="voice-selector-badge" id="voice-selector-badge" title="Click to Switch Voice">
+          <span class="voice-badge-icon">🎙️</span>
+          <span class="voice-badge-prefix">VOICE:</span>
+          <select class="nav-voice-select" id="nav-voice-select" aria-label="Select AI Voice">
+            <optgroup label="GPT-Live Voices">
+              <option value="marin" selected>🌟 Marin (Warm Female • Recommended)</option>
+              <option value="coral">Coral (Cheerful Female)</option>
+              <option value="shimmer">Shimmer (Lyrical Female)</option>
+              <option value="sage">Sage (Calm Professional)</option>
+              <option value="cedar">Cedar (Natural Male)</option>
+              <option value="alloy">Alloy (Neutral & Balanced)</option>
+              <option value="ash">Ash (Conversational Male)</option>
+              <option value="echo">Echo (Warm Male)</option>
+              <option value="verse">Verse (Dynamic Male)</option>
+              <option value="ballad">Ballad (Gentle Male)</option>
+              <option value="gleam">Gleam (North American Female)</option>
+              <option value="quartz">Quartz (Australian Female)</option>
+              <option value="willow">Willow (Irish Female)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="metric-badge tooltip-wrap" id="badge-model" data-tooltip="🎙️ Voice AI: OpenAI GPT-Live (gpt-live-1 • hears, thinks & speaks) | 🔎 Knowledge: MintX verified facts + RAG | 💾 DB: MongoDB | ⚡ Pipeline: FastAPI WebSocket">
+          <span style="font-size: 0.72rem; color: #c084fc; font-weight: 700; margin-right: 0.2rem;" id="badge-reasoning-val">🧠 gpt-5.6-sol</span>
+          <span style="color: #64748b; font-size: 0.75rem;">•</span>
+          <span id="badge-model-val" style="margin-left: 0.2rem;">gpt-live-1</span>
+        </div>
+
+        <!-- Active Instruction Pill / Button -->
+        <button class="metric-badge metric-badge-btn tooltip-wrap" id="btn-open-instructions" data-tooltip="Click to Add, Modify, or Switch Instructions" aria-label="AI Instructions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span class="badge-label">PROMPT:</span>
+          <strong id="badge-instruction-val">Mintx Solutions</strong>
+        </button>
+
+        <!-- History Drawer Button -->
+        <button class="btn-icon-nav tooltip-wrap" id="btn-history" data-tooltip="Conversation History" aria-label="Conversation History">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+
+        <!-- Settings Modal Button -->
+        <button class="btn-icon-nav tooltip-wrap" id="btn-settings" data-tooltip="Voice & Session Settings" aria-label="Voice & Session Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── 7-Layer High-Performance AI Architecture Strip ── -->
+    <div class="arch-pipeline-strip" id="arch-pipeline-strip">
+      <div class="arch-strip-inner">
+        <div class="arch-strip-title" title="MintX High-Performance Multi-Model Pipeline">
+          <span class="arch-pulse-dot"></span>
+          <span class="arch-title-text">7-LAYER STACK</span>
+        </div>
+        <div class="arch-layers-grid">
+          <!-- 1. STT -->
+          <div class="arch-chip" id="chip-stt" title="Layer 1: GPT-Live hears the caller directly (built-in, full duplex)">
+            <span class="arch-chip-icon">🎤</span>
+            <span class="arch-chip-layer">STT</span>
+            <span class="arch-chip-name" id="chip-stt-name">GPT-Live (built-in)</span>
+            <span class="arch-chip-badge">ACTIVE</span>
+          </div>
+          <!-- 2. LLM -->
+          <div class="arch-chip" id="chip-llm" title="Layer 2: Conversation + verified MintX knowledge (OpenAI GPT-Live)">
+            <span class="arch-chip-icon">🧠</span>
+            <span class="arch-chip-layer">LLM</span>
+            <span class="arch-chip-name" id="chip-llm-name">gpt-live-1</span>
+            <span class="arch-chip-badge">LIVE</span>
+          </div>
+          <!-- 3. Embeddings -->
+          <div class="arch-chip" id="chip-embeddings" title="Layer 3: RAG semantic search (text-embedding-3-large, 3072 dims)">
+            <span class="arch-chip-icon">🔎</span>
+            <span class="arch-chip-layer">EMBED</span>
+            <span class="arch-chip-name">text-embedding-3-large</span>
+            <span class="arch-chip-badge">3072-D</span>
+          </div>
+          <!-- 4. Vector DB -->
+          <div class="arch-chip" id="chip-vector-db" title="Layer 4: MintX knowledge retrieval (Qdrant Vector Database)">
+            <span class="arch-chip-icon">📚</span>
+            <span class="arch-chip-layer">VECTOR DB</span>
+            <span class="arch-chip-name" id="chip-vector-name">Qdrant (mintx)</span>
+            <span class="arch-chip-badge" id="chip-vector-badge">HNSW</span>
+          </div>
+          <!-- 5. TTS -->
+          <div class="arch-chip" id="chip-tts" title="Layer 5: GPT-Live speaks with its own voice (built-in)">
+            <span class="arch-chip-icon">🔊</span>
+            <span class="arch-chip-layer">TTS</span>
+            <span class="arch-chip-name" id="chip-tts-name">GPT-Live voice</span>
+            <span class="arch-chip-badge">LIVE</span>
+          </div>
+          <!-- 6. Database -->
+          <div class="arch-chip" id="chip-db" title="Layer 6: Customer/lead details (MongoDB)">
+            <span class="arch-chip-icon">💾</span>
+            <span class="arch-chip-layer">DB</span>
+            <span class="arch-chip-name">MongoDB</span>
+            <span class="arch-chip-badge" id="arch-chip-mongo-badge">ONLINE</span>
+          </div>
+          <!-- 7. Backend -->
+          <div class="arch-chip" id="chip-backend" title="Layer 7: Real-time call pipeline (FastAPI + WebSocket)">
+            <span class="arch-chip-icon">⚡</span>
+            <span class="arch-chip-layer">BACKEND</span>
+            <span class="arch-chip-name">FastAPI + WS</span>
+            <span class="arch-chip-badge">24kHz PCM</span>
+          </div>
+        </div>
+        <button type="button" class="btn-arch-info" id="btn-open-arch-modal" title="View Full 7-Layer Architecture Specs">
+          <span>Specs ↗</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Center Stage: Dual-Side Real-Time Speakable & Correction Studio ── -->
+    <main class="main-stage">
+      
+      <!-- ── DUAL-SIDE STAGE (Side A: Caller / You <---> Side B: AI Voice Assistant) ── -->
+      <section class="dual-side-stage" id="dual-side-stage" aria-label="Dual-Side Realtime Voice & Correction Studio">
+        
+        <!-- ── SIDE A: CALLER / USER (LIVE SPEAKABLE) ── -->
+        <div class="side-panel side-caller" id="side-caller">
+          <div class="side-panel-header">
+            <div class="side-panel-badge caller-badge">
+              <span class="pulse-indicator caller-pulse"></span>
+              <span>SIDE A: CALLER / YOU (SPEAKABLE)</span>
+            </div>
+            <div class="side-mic-hud">
+              <span class="mic-status-label" id="caller-mic-status">Ready</span>
+              <div class="mic-level-meter" id="caller-level-meter">
+                <div class="level-bar b1"></div>
+                <div class="level-bar b2"></div>
+                <div class="level-bar b3"></div>
+                <div class="level-bar b4"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Caller Live Speech Box -->
+          <div class="side-transcript-card caller-transcript-card">
+            <div class="transcript-meta-row">
+              <span class="transcript-speaker-tag caller-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+                You (Caller Voice)
+              </span>
+              <div style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                <span class="transcript-live-pill" id="caller-lang-badge" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; font-size: 0.72rem; padding: 2px 9px; border-radius: 9999px; transition: all 0.2s ease;">🌐 Language: Auto-Detect</span>
+                <span class="transcript-live-pill" id="caller-live-indicator">LIVE MIC</span>
+              </div>
+            </div>
+            <div class="side-transcript-content" id="caller-transcript-text">
+              Speak into your microphone. Your words appear here in real time...
+            </div>
+          </div>
+
+          <!-- Real-Time Spoken Voice Correction Controller -->
+          <div class="side-correction-controller">
+            <div class="side-correction-header">
+              <span class="correction-section-title">⚡ REAL-TIME VOICE CORRECTION</span>
+              <span class="correction-sub-badge">Live Rule Injector</span>
+            </div>
+
+            <div class="side-correction-actions">
+              <button type="button" class="btn-voice-teach primary-pulse" id="btn-voice-teach" title="Speak a correction rule">
+                <div class="mic-wave-rings" id="teach-mic-rings">
+                  <span class="ring ring-1"></span>
+                  <span class="ring ring-2"></span>
+                </div>
+                <div class="btn-voice-teach-inner">
+                  <svg class="teach-mic-icon" id="teach-mic-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                  </svg>
+                  <span class="teach-btn-text" id="teach-btn-text">🎙️ Speak Correction</span>
+                </div>
+              </button>
+
+              <div class="side-teach-status" id="teach-status-display">
+                <div class="teach-live-text" id="teach-live-text">
+                  Click to speak your training correction. Example: <em>"Set website starting price to Rs.15,000"</em>. AI acknowledges aloud immediately!
+                </div>
+                <div class="teach-quick-actions" id="teach-quick-actions" style="display: flex; gap: 0.4rem; margin-top: 0.5rem;">
+                  <input type="text" class="teach-edit-input" id="teach-edit-input" placeholder="Or type correction here (e.g. Website price 15,000 nu sollu)..." style="flex: 1; font-size: 0.82rem; padding: 0.4rem 0.65rem; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.4); background: rgba(0,0,0,0.45); color: #fff; outline: none;">
+                  <div class="teach-action-btns" style="display: flex; gap: 0.35rem;">
+                    <button type="button" class="btn-pill-action apply" id="btn-apply-voice-correction" style="padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; background: #10b981; color: #fff; border-radius: 6px; border: none; cursor: pointer;">Save 💾</button>
+                  </div>
+                </div>
+              </div>
+          </div>
+        </div>
+
+        <!-- ── SIDE B: AI VOICE ASSISTANT (OUTPUT) ── -->
+        <div class="side-panel side-assistant" id="side-assistant">
+          <div class="side-panel-header">
+            <div class="side-panel-badge assistant-badge">
+              <span class="pulse-indicator assistant-pulse"></span>
+              <span>SIDE B: MINTX AI ASSISTANT (REAL-TIME VOICE)</span>
+            </div>
+            <div class="side-voice-hud" title="Change Assistant Voice">
+              <label class="side-voice-hud-label" for="side-voice-select">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                </svg>
+                <span>VOICE:</span>
+              </label>
+              <select class="side-voice-select" id="side-voice-select" aria-label="Switch AI Voice">
+                <optgroup label="GPT-Live Voices">
+                  <option value="marin" selected>🌟 Marin (Warm Female • Recommended)</option>
+                  <option value="coral">Coral (Cheerful Female)</option>
+                  <option value="shimmer">Shimmer (Lyrical Female)</option>
+                  <option value="sage">Sage (Calm Professional)</option>
+                  <option value="cedar">Cedar (Natural Male)</option>
+                  <option value="alloy">Alloy (Neutral & Balanced)</option>
+                  <option value="ash">Ash (Conversational Male)</option>
+                  <option value="echo">Echo (Warm Male)</option>
+                  <option value="verse">Verse (Dynamic Male)</option>
+                  <option value="ballad">Ballad (Gentle Male)</option>
+                  <option value="gleam">Gleam (North American Female)</option>
+                  <option value="quartz">Quartz (Australian Female)</option>
+                  <option value="willow">Willow (Irish Female)</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <!-- ── Quick GPT Voice Switcher Bar ── -->
+          <div class="gpt-voice-quick-switch" id="gpt-voice-quick-switch">
+            <div class="quick-voice-label-row">
+              <span class="quick-voice-title">🎙️ SWITCH VOICE</span>
+              <span class="quick-voice-active-label" id="quick-voice-active-label">Active: <strong>Marin</strong></span>
+            </div>
+            <div class="quick-voice-chips-container" id="quick-voice-chips">
+              <button type="button" class="btn-voice-chip active" data-voice="marin" title="Marin: Warm & Natural Female (Recommended)">
+                <span class="voice-avatar">👩</span>
+                <span class="voice-chip-name">Marin</span>
+              </button>
+              <button type="button" class="btn-voice-chip" data-voice="coral" title="Coral: Expressive & Friendly Female">
+                <span class="voice-avatar">🌸</span>
+                <span class="voice-chip-name">Coral</span>
+              </button>
+              <button type="button" class="btn-voice-chip" data-voice="shimmer" title="Shimmer: Clear & Lyrical Female">
+                <span class="voice-avatar">✨</span>
+                <span class="voice-chip-name">Shimmer</span>
+              </button>
+              <button type="button" class="btn-voice-chip" data-voice="sage" title="Sage: Calm & Professional Female">
+                <span class="voice-avatar">🌿</span>
+                <span class="voice-chip-name">Sage</span>
+              </button>
+              <button type="button" class="btn-voice-chip" data-voice="cedar" title="Cedar: Natural Male">
+                <span class="voice-avatar">👨</span>
+                <span class="voice-chip-name">Cedar</span>
+              </button>
+              <button type="button" class="btn-voice-chip" data-voice="ash" title="Ash: Conversational Casual Male">
+                <span class="voice-avatar">🎙️</span>
+                <span class="voice-chip-name">Ash</span>
+              </button>
+              <div class="voice-dropdown-wrapper">
+                <button type="button" class="btn-voice-chip btn-more-voices" id="btn-more-voices" title="Select more voices">
+                  <span>More ▾</span>
+                </button>
+                <div class="voice-dropdown-menu" id="voice-dropdown-menu" style="display: none;">
+                  <button type="button" class="voice-menu-item" data-voice="alloy">🤖 Alloy (Neutral)</button>
+                  <button type="button" class="voice-menu-item" data-voice="echo">🗣️ Echo (Warm Male)</button>
+                  <button type="button" class="voice-menu-item" data-voice="verse">🎭 Verse (Dynamic Male)</button>
+                  <button type="button" class="voice-menu-item" data-voice="ballad">🎵 Ballad (Gentle Male)</button>
+                  <button type="button" class="voice-menu-item" data-voice="gleam">🌎 Gleam (North American Female)</button>
+                  <button type="button" class="voice-menu-item" data-voice="quartz">🇦🇺 Quartz (Australian Female)</button>
+                  <button type="button" class="voice-menu-item" data-voice="willow">🍀 Willow (Irish Female)</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Visualizer Orb & State Indicator -->
+          <div class="side-visualizer-box">
+            <div class="orb-wrapper" id="orb-wrapper">
+              <canvas id="audio-visualizer-canvas"></canvas>
+              <div class="core-orb" id="core-orb">
+                <svg class="orb-inner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+              </div>
+            </div>
+            <div class="side-state-labels">
+              <h2 class="state-title" id="state-title">Ready to Connect</h2>
+              <p class="state-helper" id="state-helper">Click "Start Session" to begin realtime voice chat</p>
+            </div>
+          </div>
+
+          <!-- AI Live Response Transcript Ribbon -->
+          <div class="side-transcript-card assistant-transcript-card" id="live-transcript-card">
+            <div class="transcript-meta-row">
+              <span class="transcript-speaker-tag assistant-tag" id="live-speaker-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+                Mintx AI Assistant (Live Subtitles)
+              </span>
+              <button type="button" class="btn-correct-live" id="btn-correct-live" title="Speak a voice correction for this response">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+                <span>🎙️ Correct Response</span>
+              </button>
+            </div>
+            <div class="side-transcript-content live-text" id="live-transcript-text">
+              Session idle. Press Start Session to talk.
+            </div>
+          </div>
+
+          <!-- Real-Time Verbal Acknowledgment Card -->
+          <div class="verbal-ack-banner" id="verbal-ack-banner" style="display: none;">
+            <div class="verbal-ack-icon">🗣️</div>
+            <div class="verbal-ack-text-wrap">
+              <strong class="verbal-ack-title">AI Verbal Acknowledgment:</strong>
+              <span class="verbal-ack-quote" id="verbal-ack-quote">"Understood, I have updated the rule!"</span>
+            </div>
+          </div>
+
+          <!-- Active Starting Words / Greeting Card -->
+          <div class="starting-greeting-card" id="starting-greeting-card">
+            <div class="greeting-card-header">
+              <div class="greeting-card-title-wrap">
+                <span class="greeting-badge-pill">👋 STARTING WORDS (தொடக்க வார்த்தை)</span>
+                <span class="greeting-hint">Spoken first when call connects</span>
+              </div>
+              <div class="greeting-card-actions">
+                <button type="button" class="btn-greeting-ctrl" id="btn-edit-greeting" title="Change starting greeting words">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  <span>Edit Words</span>
+                </button>
+                <button type="button" class="btn-greeting-ctrl btn-test-audio" id="btn-test-greeting" title="Listen to starting words spoken by AI">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <span>Test Voice</span>
+                </button>
+              </div>
+            </div>
+            <div class="greeting-phrase-display" id="greeting-phrase-display">
+              "Vanakkam! MintX Solutions-ku welcome. Enna service venum nu sollunga?"
+            </div>
+            <!-- Quick Preset Chips -->
+            <div class="greeting-presets-row" id="greeting-presets-row">
+              <span class="preset-label">Quick:</span>
+              <button type="button" class="chip-greeting-preset" data-phrase="Vanakkam! MintX Solutions-ku welcome. Enna service venum nu sollunga?">Vanakkam (Thunglish)</button>
+              <button type="button" class="chip-greeting-preset" data-phrase="Welcome to MintX Solutions! How can I help you today?">Welcome (English)</button>
+              <button type="button" class="chip-greeting-preset" data-phrase="Vanakkam! MintX Solutions. Enna venum?">Short Greeting</button>
+            </div>
+            <!-- Inline Greeting Editor (hidden by default) -->
+            <div class="greeting-edit-drawer" id="greeting-edit-drawer" style="display: none;">
+              <input type="text" class="greeting-input-field" id="greeting-input-field" placeholder="Type new starting greeting phrase here..."/>
+              <div class="greeting-drawer-btns">
+                <button type="button" class="btn-pill-action cancel" id="btn-cancel-greeting">Cancel</button>
+                <button type="button" class="btn-pill-action apply" id="btn-save-greeting">Save Starting Word 🚀</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Instruction Persona Preview -->
+          <div class="persona-stage-card" id="persona-stage-card" aria-label="AI Instruction & Persona Studio" title="Click to view or switch AI Instructions">
+            <div class="persona-stage-left">
+              <div class="persona-icon-disc">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+              </div>
+              <div class="persona-info-block">
+                <div class="persona-tagline">
+                  <span class="persona-badge-pill">ACTIVE PERSONA</span>
+                  <strong class="persona-preset-name" id="stage-instruction-name">Mintx Solutions</strong>
+                  <span class="persona-preset-category" id="stage-instruction-category">Sales</span>
+                </div>
+                <p class="persona-prompt-preview" id="stage-instruction-preview">
+                  You are the AI Phone Assistant for Mintx Solutions, a professional software development company...
+                </p>
+                <div class="stage-rules-bar" id="stage-rules-bar">
+                  <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;">ACTIVE RULES:</span>
+                  <span class="stage-rule-badge" id="btn-toggle-stage-rules" title="Click to view and modify customized rules in instructions">
+                    ⚡ <span id="stage-rules-count">0</span> Active Rules (Click to View/Modify)
+                  </span>
+                  <span class="stage-rule-badge" id="btn-stage-add-rule" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #d8b4fe;" title="Add a customized rule to instructions.json">
+                    ➕ Add Rule
+                  </span>
+                </div>
+                <div class="stage-rules-drawer" id="stage-rules-drawer" style="display: none;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <strong style="font-size: 0.76rem; color: #7dd3fc;">Rules saved in instructions.json:</strong>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">Inline modify or delete anytime</span>
+                  </div>
+                  <div id="stage-rules-list" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                    <!-- Injected dynamically with Modify & Delete buttons -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="persona-stage-actions">
+              <button type="button" class="btn-stage-action primary" id="btn-stage-modify" title="Modify current instruction prompt rules">
+                <span>Modify Prompt</span>
+              </button>
+              <button type="button" class="btn-stage-action" id="btn-stage-add" title="Add new custom instruction or switch persona">
+                <span>Add / Switch</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── REAL-TIME INTERACTION & CORRECTION BRIDGE ── -->
+      <section class="interaction-bridge-console" id="voice-train-console">
+        <div class="bridge-header-row">
+          <div class="bridge-title-group">
+            <div class="train-console-badge">
+              <span class="train-pulse-dot"></span>
+              REAL-TIME INTERACTION & CORRECTION BRIDGE
+            </div>
+            <h3 class="train-console-title">Live Dual-Side Interaction & Correction</h3>
+            <p class="train-console-desc">
+              Speak any correction in your voice or English. The AI immediately hot-reloads its active rules, speaks aloud verbal acknowledgment, and follows the new rule on the fly!
+            </p>
+          </div>
+          <div class="bridge-toggles">
+            <label class="toggle-switch-label" title="Automatically recognize corrections spoken during test calls when you say 'Correction:'">
+              <input type="checkbox" id="toggle-auto-detect-corrections" checked>
+              <span class="toggle-switch-slider"></span>
+              <span class="toggle-label-text">Auto-detect "Correction:" in call</span>
+            </label>
+            <button type="button" class="btn-sm-ghost" id="btn-view-training-history" title="View Voice Training Log">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Training Log (<span id="train-history-count">0</span>)
+            </button>
+            <button type="button" class="btn-sm-ghost" id="btn-undo-correction" title="Undo Last Voice Correction" style="display: none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+              </svg>
+              Undo Last
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Tell Correction Studio -->
+        <div class="bridge-correction-studio" id="bridge-correction-studio">
+          <div class="bridge-correction-header">
+            <span class="bridge-correction-title">
+              <span>💬</span> Tell Correction to Save in Instruction File:
+            </span>
+            <span class="bridge-correction-hint">Speaks or types rule ➔ Saves to instructions.json ➔ Live updates AI</span>
+          </div>
+          <div class="bridge-correction-input-row">
+            <button type="button" class="bridge-speak-btn" id="btn-bridge-speak-correction" title="Speak your correction rule">
+              <span id="bridge-mic-icon">🎙️</span> <span id="bridge-mic-text">Speak Correction</span>
+            </button>
+            <input type="text" id="input-bridge-correction" class="bridge-correction-input" placeholder="Tell or type correction (e.g., 'Website price 15,000 nu sollu' or 'Ask one question at a time')...">
+            <button type="button" class="bridge-apply-btn" id="btn-bridge-apply-correction" title="Save correction to instructions.json & hot-reload AI">
+              Save to Instructions 💾
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Customized Rules in Instructions -->
+        <div class="bridge-active-rules-container" id="bridge-active-rules-container">
+          <div class="bridge-rules-header">
+            <span class="bridge-rules-title">
+              <span>⚡</span> Active Customized Rules in instructions.json:
+            </span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span style="font-size: 0.74rem; color: #94a3b8;" id="bridge-rules-count-badge">0 rules active</span>
+              <button type="button" class="btn-rule-action modify" id="btn-bridge-refresh-rules" title="Refresh rules from instructions file" style="padding: 0.2rem 0.5rem; font-size: 0.72rem;">
+                🔄 Refresh
+              </button>
+            </div>
+          </div>
+          <div class="bridge-rules-grid" id="bridge-rules-list">
+            <!-- Dynamically populated with active rules, each having inline ✏️ Modify and 🗑️ Delete buttons -->
+          </div>
+        </div>
+
+        <!-- Quick Tamil & English Voice Training Preset Chips -->
+        <div class="train-chips-bar">
+          <span class="train-chips-label">Quick Realtime Voice Corrections:</span>
+          <button type="button" class="train-chip-btn" data-correction="Starting greeting-a change pannu: 'Vanakkam! MintX Solutions-ku welcome. Enna service venum nu sollunga?'">
+            👋 Start: Vanakkam (Thunglish)
+          </button>
+          <button type="button" class="train-chip-btn" data-correction="Starting greeting-a change pannu: 'Hello! Welcome to MintX Solutions. How can I help you today?'">
+            👋 Start: Hello Welcome (English)
+          </button>
+          <button type="button" class="train-chip-btn" data-correction="Set website starting price to Rs.15,000 with 1 week delivery">
+            💰 Website price Rs.15,000
+          </button>
+          <button type="button" class="train-chip-btn" data-correction="At the end, clearly ask for the customer's WhatsApp mobile number">
+            📱 Ask WhatsApp number
+          </button>
+          <button type="button" class="train-chip-btn" data-correction="Keep all responses strictly under 2 concise, snappy sentences for telephone audio clarity">
+            ⚡ Ultra-brief 2 sentences
+          </button>
+          <button type="button" class="train-chip-btn" data-correction="Offer a special 15% inaugural discount for any mobile app project inquiry">
+            🎁 15% Mobile App discount
+          </button>
+        </div>
+
+        <!-- Realtime Training Event Flash Alert -->
+        <div class="train-alert-banner" id="train-alert-banner" style="display: none;">
+          <div class="train-alert-icon">✨</div>
+          <div class="train-alert-content">
+            <strong id="train-alert-title">Prompt Updated via Voice!</strong>
+            <span id="train-alert-diff">New rule applied.</span>
+          </div>
+          <button type="button" class="btn-xs-close" id="btn-close-train-alert">&times;</button>
+        </div>
+      </section>
+
+      <!-- Floating Controls Island -->
+      <section class="control-island" aria-label="Call Controls">
+        <!-- Mute Toggle -->
+        <button class="btn-action-round tooltip-wrap" id="btn-toggle-mic" data-tooltip="Mute / Unmute Mic" aria-label="Mute / Unmute Mic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+        </button>
+
+        <!-- Master Start/End Call Button -->
+        <button class="btn-master-call" id="btn-master-call">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+          <span id="btn-call-text">Start Session</span>
+        </button>
+
+        <!-- Record Conversation Toggle -->
+        <button class="btn-action-round tooltip-wrap rec-active" id="btn-toggle-record" data-tooltip="Audio & Transcript Recording: ON (Click to toggle)" aria-label="Toggle Conversation Recording">
+          <span class="btn-rec-dot"></span>
+        </button>
+
+        <!-- Interrupt Button -->
+        <button class="btn-action-round tooltip-wrap" id="btn-interrupt" data-tooltip="Interrupt / Stop AI" aria-label="Interrupt Assistant">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="4" width="4" height="16"/>
+            <rect x="14" y="4" width="4" height="16"/>
+          </svg>
+        </button>
+
+        <!-- Audio Mode Selector (Browser Web Audio vs Host Machine sounddevice) -->
+        <button class="btn-action-round tooltip-wrap" id="btn-audio-mode" data-tooltip="Audio: Browser Mic & Speakers" aria-label="Audio Mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+        </button>
+      </section>
+
+      <!-- Hybrid Chat Input & Quick Suggestion Chips -->
+      <section class="input-and-chips-section" aria-label="Prompt Suggestions & Text Input">
+        <div class="quick-chips-row">
+          <button class="chip-btn" data-prompt="What software services does Mintx Solutions provide?">
+            💼 What services do you offer?
+          </button>
+          <button class="chip-btn" data-prompt="I need a mobile app for iOS and Android with user login and payments.">
+            📱 I need a mobile app
+          </button>
+          <button class="chip-btn" data-prompt="I need a new e-commerce website with payment gateway and mobile responsive design.">
+            🌐 E-commerce Website
+          </button>
+          <button class="chip-btn" data-prompt="How much does a typical website cost and how many days will it take?">
+            💰 Budget & Delivery Time
+          </button>
+          <button class="chip-btn" data-prompt="How fast can your team build and deploy a modern web application?">
+            ⚡ Project timeline
+          </button>
+        </div>
+
+        <div class="text-input-bar" id="text-input-bar">
+          <input type="text" id="input-message" placeholder="Type a message or speak into your microphone..." autocomplete="off">
+          <button class="btn-send-text" id="btn-send-text" aria-label="Send Text Message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ── Conversation History Drawer (Slide-Over) ────────────────────────── -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="side-drawer" id="history-drawer" aria-label="Conversation History">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Conversation History
+      </div>
+      <button class="btn-icon-nav" id="btn-close-drawer" aria-label="Close Drawer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="drawer-body" id="drawer-body">
+      <!-- Dynamic Chat Bubbles Inserted Here -->
+    </div>
+
+    <div class="drawer-footer">
+      <button class="btn-secondary" id="btn-download-txt" title="Download formatted conversation transcript (.txt)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Download .txt
+      </button>
+      <button class="btn-secondary" id="btn-copy-history">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        Copy
+      </button>
+      <button class="btn-secondary" id="btn-clear-history">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+        Clear
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Settings Modal ──────────────────────────────────────────────────── -->
+  <div class="modal-backdrop" id="settings-backdrop" style="display: none;">
+    <div class="modal-card modal-card-lg" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 class="modal-title" id="settings-modal-title">Realtime Session & Voice Settings</h3>
+          <span class="modal-subtitle">Configure OpenAI Realtime session, reasoning accuracy, and Sarvam AI Indian TTS</span>
+        </div>
+        <button class="btn-icon-nav" id="btn-close-settings" aria-label="Close Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body settings-scroll-body">
+        <!-- ── Section 1: Realtime AI & General Configuration ── -->
+        <div class="settings-section-block">
+          <div class="settings-section-header">
+            <div class="section-badge-icon">⚡</div>
+            <div class="section-title-group">
+              <h4 class="settings-section-title">OpenAI Realtime AI Model & Intelligence</h4>
+              <span class="settings-section-sub">Low-latency speech-to-speech engine controls</span>
+            </div>
+          </div>
+
+          <!-- OpenAI API Key & Account Status -->
+          <div class="setting-group" id="openai-key-card" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 10px; padding: 0.9rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <label class="setting-label" style="margin: 0; font-weight: 600; color: #f1f5f9;">🔑 OpenAI API Key & Credit Quota</label>
+              <span id="openai-key-status-badge" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 600; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);">Checking...</span>
+            </div>
+            <div id="openai-status-text" style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.65rem; line-height: 1.4;">
+              Validating key balance with OpenAI...
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="password" id="input-openai-api-key" placeholder="Paste new key (sk-proj-...)" class="setting-input-field" style="flex: 1; font-family: monospace; font-size: 0.82rem; background: rgba(0,0,0,0.5); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 8px; padding: 0.45rem 0.75rem; color: #f8fafc;">
+              <button type="button" id="btn-save-openai-key" style="background: linear-gradient(135deg, #06b6d4, #3b82f6); color: white; border: none; border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;">Save & Test</button>
+            </div>
+            <div style="margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.73rem;">
+              <span style="color: #64748b;">Key updates .env automatically</span>
+              <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" style="color: #38bdf8; text-decoration: underline;">Recharge OpenAI Credits ↗</a>
+            </div>
+          </div>
+
+          <!-- Multi-Model Architecture Pipeline Status Card -->
+          <div style="background: linear-gradient(135deg, rgba(30, 27, 75, 0.6), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 10px; padding: 0.85rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem;">
+              <span style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #e9d5ff; display: flex; align-items: center; gap: 0.35rem;">
+                <span style="font-size: 0.95rem;">⚡</span> Dedicated Multi-Model Pipeline
+              </span>
+              <span style="font-size: 0.68rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-weight: 600;">ACTIVE</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.74rem;">
+              <div style="background: rgba(0,0,0,0.35); padding: 0.45rem 0.6rem; border-radius: 6px; border-left: 3px solid #a855f7;">
+                <div style="color: #94a3b8; font-size: 0.68rem;">🧠 Reasoning / Requirements</div>
+                <div style="color: #f1f5f9; font-weight: 600; font-family: monospace;" id="summary-reasoning-model">gpt-5.6-sol</div>
+              </div>
+              <div style="background: rgba(0,0,0,0.35); padding: 0.45rem 0.6rem; border-radius: 6px; border-left: 3px solid #06b6d4;">
+                <div style="color: #94a3b8; font-size: 0.68rem;">🎙️ Real-time Conversation</div>
+                <div style="color: #f1f5f9; font-weight: 600; font-family: monospace;" id="summary-realtime-model">gpt-live-1</div>
+              </div>
+              <div style="background: rgba(0,0,0,0.35); padding: 0.45rem 0.6rem; border-radius: 6px; border-left: 3px solid #38bdf8;">
+                <div style="color: #94a3b8; font-size: 0.68rem;">🗣️ Speech Transcription</div>
+                <div style="color: #f1f5f9; font-weight: 600; font-family: monospace;" id="summary-stt-model">GPT-Live (built-in)</div>
+              </div>
+              <div style="background: rgba(0,0,0,0.35); padding: 0.45rem 0.6rem; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                <div style="color: #94a3b8; font-size: 0.68rem;">🔊 Voice Output Engine</div>
+                <div style="color: #f1f5f9; font-weight: 600; font-family: monospace;" id="summary-tts-engine">GPT-Live voice</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 🧠 High-Quality Reasoning & Customer Requirements Model -->
+          <div class="setting-group" id="setting-reasoning-model-card" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 0.9rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="setting-label" for="setting-reasoning-model" style="margin: 0; font-weight: 600; color: #e9d5ff;">🧠 Reasoning & Requirements Model</label>
+              <span class="model-tier-pill purple" id="badge-reasoning-tier" style="background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4);">GPT-5.6-SOL FLAGSHIP</span>
+            </div>
+            <select class="setting-select" id="setting-reasoning-model" style="border-color: rgba(168, 85, 247, 0.45);">
+              <option value="gpt-5.6-sol" selected>gpt-5.6-sol (High-Quality Reasoning & Customer Requirements • Recommended)</option>
+              <option value="gpt-5.6">gpt-5.6 (Flagship Frontier Reasoning & Coding)</option>
+              <option value="o3-mini">o3-mini (High-Speed Deep Reasoning & Complex Logic)</option>
+              <option value="gpt-4o">gpt-4o (Omni Multimodal Intelligence)</option>
+              <option value="gpt-4o-mini">gpt-4o-mini (Lightweight Standard Reasoning)</option>
+              <option value="custom">✨ Custom Reasoning Model ID...</option>
+            </select>
+            <div id="setting-custom-reasoning-model-group" style="display: none; margin-top: 0.5rem;">
+              <label class="setting-label" for="setting-custom-reasoning-model" style="font-size: 0.75rem; color: #c084fc;">Custom Reasoning Model Identifier</label>
+              <input type="text" class="setting-input-field" id="setting-custom-reasoning-model" placeholder="e.g. gpt-5.6-sol, ft:gpt-..." style="background: rgba(0,0,0,0.4); color: #c084fc; font-family: monospace; font-size: 0.85rem; border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 8px; padding: 0.5rem 0.75rem; width: 100%; box-sizing: border-box;">
+            </div>
+            <span style="display: block; font-size: 0.72rem; color: #94a3b8; margin-top: 0.4rem; line-height: 1.35;">
+              Powers customer requirement extraction, lead intent analysis, phone summaries, and prompt self-training rules.
+            </span>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="setting-voice">Active Speech Voice</label>
+            <select class="setting-select" id="setting-voice">
+              <optgroup label="GPT-Live Voices">
+                <option value="marin" selected>Marin (Warm & Natural Female • Recommended)</option>
+                <option value="coral">Coral (Cheerful & Expressive Female)</option>
+                <option value="shimmer">Shimmer (Clear & Lyrical Female)</option>
+                <option value="sage">Sage (Calm & Professional Female)</option>
+                <option value="cedar">Cedar (Natural Male)</option>
+                <option value="alloy">Alloy (Neutral & Balanced)</option>
+                <option value="ash">Ash (Conversational Casual Male)</option>
+                <option value="echo">Echo (Warm & Resonant Male)</option>
+                <option value="verse">Verse (Dynamic Versatile Male)</option>
+                <option value="ballad">Ballad (Melodic & Gentle Male)</option>
+                <option value="gleam">Gleam (North American Female)</option>
+                <option value="quartz">Quartz (Australian Female)</option>
+                <option value="willow">Willow (Irish Female)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="setting-model">🎙️ Live AI Voice Model</label>
+            <select class="setting-select" id="setting-model">
+              <option value="gpt-live-1" selected>gpt-live-1 (GPT-Live • Full-Duplex Speech-to-Speech • Listens & Speaks Together)</option>
+            </select>
+            <span class="settings-section-sub" style="display: block; margin-top: 0.35rem;">GPT-Live hears the caller, decides when to talk and speaks with its own voice — no separate speech-to-text or Sarvam voice is used.</span>
+          </div>
+
+          <div class="setting-group" id="setting-custom-model-group" style="display: none;">
+            <label class="setting-label" for="setting-custom-model">Custom Model Identifier</label>
+            <input type="text" class="setting-input-field" id="setting-custom-model" placeholder="e.g. ft:gpt-4o-realtime:..., gpt-realtime-2.1" style="background: rgba(0,0,0,0.4); color: #67e8f9; font-family: monospace; font-size: 0.85rem; border: 1px solid rgba(6, 182, 212, 0.45); border-radius: 8px; padding: 0.5rem 0.75rem; width: 100%; box-sizing: border-box;">
+          </div>
+
+          <div class="setting-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setting-label" for="setting-reasoning-effort">AI Reasoning Accuracy (Thinking Depth)</label>
+              <span id="badge-reasoning-effort-val" style="font-family: monospace; font-size: 0.76rem; color: #c084fc; font-weight: 600;">MEDIUM</span>
+            </div>
+            <select class="setting-select" id="setting-reasoning-effort">
+              <option value="high">High (Maximum Reasoning Accuracy & In-Depth Analysis)</option>
+              <option value="medium" selected>Medium (Balanced Accuracy & Fast Response - Recommended)</option>
+              <option value="low">Low (Light Reasoning, Lower Latency)</option>
+              <option value="none">None (Zero Reasoning Delay, Instant Response)</option>
+            </select>
+          </div>
+
+          <div class="setting-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setting-label" for="setting-temperature">Accuracy vs Creativity (Temperature)</label>
+              <span id="label-temperature-val" style="font-family: monospace; font-size: 0.8rem; color: #38bdf8; font-weight: 600;">0.60 (High Accuracy)</span>
+            </div>
+            <input type="range" id="setting-temperature" min="0.1" max="1.0" step="0.05" value="0.60" style="width: 100%; accent-color: #06b6d4; cursor: pointer; margin-top: 0.35rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <span>0.1 (Strict Factual Accuracy)</span>
+              <span>0.6 (Recommended)</span>
+              <span>1.0 (Creative)</span>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="setting-audio-mode">Audio Processing Pipeline</label>
+            <select class="setting-select" id="setting-audio-mode">
+              <option value="browser" selected>Browser Web Audio (Microphone & Speakers in browser tab)</option>
+              <option value="host">Host System Audio (Python sounddevice on server)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ── Section 2: Speech-to-Text (STT) & Listening Sensitivity ── -->
+        <div class="settings-section-block stt-highlight-box">
+          <div class="settings-section-header">
+            <div class="section-badge-icon cyan-glow">🎙️</div>
+            <div class="section-title-group">
+              <div class="section-title-badge-row">
+                <h4 class="settings-section-title">Speech-to-Text (STT) & Voice Detection</h4>
+                <span class="badge-tag-cyan">WHISPER RECOGNITION</span>
+              </div>
+              <span class="settings-section-sub">Configure audio transcription engine, turn-taking pause thresholds, and microphone filters</span>
+            </div>
+          </div>
+
+          <!-- STT Transcription Engine -->
+          <div class="setting-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setting-label" for="setting-stt-model">Speech-to-Text (STT) Transcription Engine</label>
+              <span class="model-tier-pill cyan" id="badge-stt-tier">GPT LIVE TRANSCRIBE</span>
+            </div>
+            <select class="setting-select" id="setting-stt-model">
+              <option value="saaras:v4" selected>🌟 Sarvam Saaras v4 (Realtime • Auto Language • Tamil/Thanglish • Recommended)</option>
+              <option value="gpt-live-transcribe">🎤 OpenAI GPT Live Transcribe (gpt-live-transcribe • Real-time Speech → Text)</option>
+              <option value="gpt-transcribe">gpt-transcribe (OpenAI Asynchronous Speech Engine)</option>
+              <option value="gpt-realtime-whisper">gpt-realtime-whisper (Built-in Realtime Whisper — Sub-50ms)</option>
+              <option value="whisper-1">whisper-1 (OpenAI Whisper Cloud — Robust Multilingual)</option>
+              <option value="none">Disabled / Off (Mute STT Transcripts)</option>
+            </select>
+          </div>
+
+          <!-- Turn Detection Silence Pause (VAD) -->
+          <div class="setting-group slider-card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setting-label" for="setting-vad-silence">Turn-Taking Silence Timeout (VAD)</label>
+              <span id="label-vad-silence-val" class="slider-badge-val cyan">500ms (Conversational Balanced)</span>
+            </div>
+            <input type="range" id="setting-vad-silence" min="200" max="1500" step="50" value="500" class="accuracy-range-slider cyan">
+            <div class="slider-hint-row">
+              <span>200ms (Snappy Interruption)</span>
+              <span>500ms (Natural Balanced)</span>
+              <span>1200ms (Thoughtful Pauses)</span>
+            </div>
+            <!-- Quick VAD Presets -->
+            <div class="accuracy-preset-chips" style="margin-top: 0.65rem;">
+              <button type="button" class="btn-accuracy-preset" id="btn-vad-snappy" data-silence="250" data-threshold="0.55">
+                <span>⚡ Snappy (250ms)</span>
+                <small>Quick back-and-forth</small>
+              </button>
+              <button type="button" class="btn-accuracy-preset active" id="btn-vad-balanced" data-silence="500" data-threshold="0.50">
+                <span>💬 Balanced (500ms)</span>
+                <small>Natural conversation</small>
+              </button>
+              <button type="button" class="btn-accuracy-preset" id="btn-vad-patient" data-silence="850" data-threshold="0.45">
+                <span>⏳ Patient (850ms)</span>
+                <small>Allows thinking pauses</small>
+              </button>
+            </div>
+          </div>
+
+          <!-- VAD Sensitivity and Lead-in buffer -->
+          <div class="accuracy-sliders-grid">
+            <!-- VAD Threshold -->
+            <div class="setting-group slider-card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="setting-label" for="setting-vad-threshold">VAD Detection Sensitivity</label>
+                <span id="label-vad-threshold-val" class="slider-badge-val cyan">0.50 (Standard)</span>
+              </div>
+              <input type="range" id="setting-vad-threshold" min="0.10" max="0.90" step="0.05" value="0.50" class="accuracy-range-slider cyan">
+              <div class="slider-hint-row">
+                <span>0.2 (Soft Whisper)</span>
+                <span>0.5 (Standard)</span>
+                <span>0.8 (Noisy Room)</span>
+              </div>
+            </div>
+
+            <!-- Prefix Padding -->
+            <div class="setting-group slider-card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="setting-label" for="setting-vad-prefix">Speech Lead-in Buffer</label>
+                <span id="label-vad-prefix-val" class="slider-badge-val cyan">300ms (Crisp Syllables)</span>
+              </div>
+              <input type="range" id="setting-vad-prefix" min="100" max="600" step="50" value="300" class="accuracy-range-slider cyan">
+              <div class="slider-hint-row">
+                <span>100ms (Snappy)</span>
+                <span>300ms (Optimal)</span>
+                <span>600ms (Extended)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Microphone Enhancements -->
+          <div class="setting-group">
+            <label class="setting-label">Microphone Audio Hardware Filters</label>
+            <div class="mic-filters-grid">
+              <label class="checkbox-label" for="setting-mic-echo">
+                <input type="checkbox" id="setting-mic-echo" checked class="custom-checkbox">
+                <span class="checkbox-text">
+                  <strong>Echo Cancellation</strong>
+                  <small>Blocks speaker feedback</small>
+                </span>
+              </label>
+              <label class="checkbox-label" for="setting-mic-noise">
+                <input type="checkbox" id="setting-mic-noise" checked class="custom-checkbox">
+                <span class="checkbox-text">
+                  <strong>Noise Suppression</strong>
+                  <small>Cuts background room hum</small>
+                </span>
+              </label>
+              <label class="checkbox-label" for="setting-mic-gain">
+                <input type="checkbox" id="setting-mic-gain" checked class="custom-checkbox">
+                <span class="checkbox-text">
+                  <strong>Auto Gain Control</strong>
+                  <small>Normalizes voice level</small>
+                </span>
+              </label>
+              <label class="checkbox-label" for="setting-barge-in">
+                <input type="checkbox" id="setting-barge-in" class="custom-checkbox">
+                <span class="checkbox-text">
+                  <strong>Allow Interruptions</strong>
+                  <small>Headphones only — talk over Yazhini to stop her</small>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section 3: Text-to-Speech (TTS) & Playback Output ── -->
+        <div class="settings-section-block tts-highlight-box">
+          <div class="settings-section-header">
+            <div class="section-badge-icon emerald-glow">🔊</div>
+            <div class="section-title-group">
+              <div class="section-title-badge-row">
+                <h4 class="settings-section-title">Text-to-Speech (TTS) & Voice Playback</h4>
+                <span class="badge-tag-emerald">SPEECH CONTROLS</span>
+              </div>
+              <span class="settings-section-sub">Adjust spoken delivery speed, master playback volume, and speech output mode</span>
+            </div>
+          </div>
+
+          <!-- TTS Speed & Volume Sliders Grid -->
+          <div class="accuracy-sliders-grid">
+            <!-- TTS Speed -->
+            <div class="setting-group slider-card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="setting-label" for="setting-tts-speed">Spoken Delivery Speed (Rate)</label>
+                <span id="label-tts-speed-val" class="slider-badge-val emerald">1.00x (Natural Speed)</span>
+              </div>
+              <input type="range" id="setting-tts-speed" min="0.75" max="1.50" step="0.05" value="1.00" class="accuracy-range-slider emerald">
+              <div class="slider-hint-row">
+                <span>0.75x (Deliberate)</span>
+                <span>1.00x (Natural)</span>
+                <span>1.25x (Brisk)</span>
+                <span>1.50x (Fast)</span>
+              </div>
+              <!-- Quick Speed Chips -->
+              <div class="accuracy-preset-chips" style="margin-top: 0.5rem;">
+                <button type="button" class="btn-accuracy-preset" id="btn-speed-slow" data-speed="0.85">
+                  <span>🐢 0.85x</span>
+                  <small>Deliberate</small>
+                </button>
+                <button type="button" class="btn-accuracy-preset active" id="btn-speed-normal" data-speed="1.00">
+                  <span>✨ 1.00x</span>
+                  <small>Natural</small>
+                </button>
+                <button type="button" class="btn-accuracy-preset" id="btn-speed-fast" data-speed="1.20">
+                  <span>⚡ 1.20x</span>
+                  <small>Brisk</small>
+                </button>
+              </div>
+            </div>
+
+            <!-- TTS Master Volume -->
+            <div class="setting-group slider-card">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="setting-label" for="setting-tts-volume">Speech Output Volume (Gain)</label>
+                <span id="label-tts-volume-val" class="slider-badge-val emerald">100% (Standard Output)</span>
+              </div>
+              <input type="range" id="setting-tts-volume" min="20" max="150" step="5" value="100" class="accuracy-range-slider emerald">
+              <div class="slider-hint-row">
+                <span>20% (Soft)</span>
+                <span>100% (Standard)</span>
+                <span>150% (Boosted)</span>
+              </div>
+              <!-- Volume Presets -->
+              <div class="accuracy-preset-chips" style="margin-top: 0.5rem;">
+                <button type="button" class="btn-accuracy-preset" id="btn-vol-quiet" data-volume="60">
+                  <span>🔉 60%</span>
+                  <small>Soft</small>
+                </button>
+                <button type="button" class="btn-accuracy-preset active" id="btn-vol-standard" data-volume="100">
+                  <span>🔊 100%</span>
+                  <small>Standard</small>
+                </button>
+                <button type="button" class="btn-accuracy-preset" id="btn-vol-boost" data-volume="135">
+                  <span>📢 135%</span>
+                  <small>Boosted</small>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modality and Delivery row -->
+          <div class="setting-group-row-2col">
+            <div class="setting-group">
+              <label class="setting-label" for="setting-tts-modality">Speech Output Modality</label>
+              <select class="setting-select" id="setting-tts-modality">
+                <option value="audio" selected>Spoken Voice Audio + Live Captions</option>
+                <option value="text">Mute Spoken Audio (Text Captions Only)</option>
+              </select>
+            </div>
+            <div class="setting-group">
+              <label class="setting-label" for="setting-tts-delivery">TTS Audio Delivery Pipeline</label>
+              <select class="setting-select" id="setting-tts-delivery">
+                <option value="stream" selected>⚡ Instant Real-Time Streaming (Sub-75ms Latency)</option>
+                <option value="buffered">🎵 Smooth Sentence Synthesis (Consistent Flow)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section 4: Dedicated Sarvam AI Text-to-Speech (bulbul:v3) ── -->
+        <div class="settings-section-block elevenlabs-highlight-box">
+          <div class="settings-section-header">
+            <div class="section-badge-icon purple-glow">🎯</div>
+            <div class="section-title-group">
+              <div class="section-title-badge-row">
+                <h4 class="settings-section-title">Sarvam AI Text-to-Speech (bulbul:v3)</h4>
+                <span class="badge-tag-purple">SARVAM AI ENGINE</span>
+              </div>
+              <span class="settings-section-sub">Indian language TTS engine with natural Indian accents (Tamil, Tanglish, English)</span>
+            </div>
+          </div>
+
+          <!-- Sarvam Model -->
+          <div class="setting-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setting-label" for="setting-sarvam-model">Sarvam AI Model</label>
+              <span class="model-tier-pill" id="badge-sarvam-tier">BULBUL:V3</span>
+            </div>
+            <select class="setting-select" id="setting-sarvam-model">
+              <option value="bulbul:v3" selected>⚡ bulbul:v3 (State-of-the-Art Indian Language & Accent TTS • Recommended)</option>
+              <option value="bulbul:v2">🎙️ bulbul:v2 (Previous Generation High-Speed TTS)</option>
+            </select>
+          </div>
+
+          <!-- Sarvam Speaker Preset -->
+          <div class="setting-group">
+            <label class="setting-label" for="setting-sarvam-speaker">Sarvam AI Speaker Voice</label>
+            <select class="setting-select" id="setting-sarvam-speaker">
+              <option value="kavitha" selected>Kavitha (Yazhini - Natural South Indian Female • Warm & Clear - Default)</option>
+              <option value="kavya">Kavya (Warm & Polite Female)</option>
+              <option value="priya">Priya (Conversational & Clear Female)</option>
+              <option value="shreya">Shreya (Expressive Female)</option>
+              <option value="roopa">Roopa (Formal & Articulate Female)</option>
+              <option value="mani">Mani (Conversational South Indian Male)</option>
+              <option value="gokul">Gokul (Energetic & Friendly Male)</option>
+              <option value="vijay">Vijay (Deep & Confident Male)</option>
+            </select>
+          </div>
+
+          <!-- Language Code -->
+          <div class="setting-group">
+            <label class="setting-label" for="setting-sarvam-language">Language Code</label>
+            <select class="setting-select" id="setting-sarvam-language">
+              <option value="ta-IN" selected>ta-IN (Tamil / Tanglish - Recommended for Mint X Solutions)</option>
+              <option value="en-IN">en-IN (Indian English)</option>
+              <option value="hi-IN">hi-IN (Hindi)</option>
+              <option value="te-IN">te-IN (Telugu)</option>
+              <option value="kn-IN">kn-IN (Kannada)</option>
+              <option value="ml-IN">ml-IN (Malayalam)</option>
+            </select>
+          </div>
+
+          <!-- Pace / Speed Slider -->
+          <div class="accuracy-sliders-grid">
+            <div class="setting-group slider-card" style="grid-column: 1 / -1;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="setting-label" for="setting-sarvam-pace">Speech Pace / Speed</label>
+                <span id="label-sarvam-pace-val" class="slider-badge-val">1.25x (Natural Speed)</span>
+              </div>
+              <input type="range" id="setting-sarvam-pace" min="0.50" max="2.00" step="0.05" value="1.25" class="accuracy-range-slider purple">
+              <div class="slider-hint-row">
+                <span>0.5x (Slow)</span>
+                <span>1.25x (Natural - Recommended)</span>
+                <span>2.0x (Fast)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Audio Testing Box -->
+          <div class="elevenlabs-test-strip">
+            <div class="test-strip-header">
+              <span>🔊 Test Sarvam AI Voice</span>
+              <span id="sarvam-test-status" class="test-status-tag">Ready</span>
+            </div>
+            <div class="test-strip-controls">
+              <input type="text" class="test-phrase-input" id="setting-sarvam-test-text" value="வணக்கம்! Mint X Solutions-ku welcome. Enna service venum nu sollunga?" placeholder="Enter test phrase...">
+              <button type="button" class="btn-voice-preview" id="btn-test-sarvam">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                <span>Preview Audio</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section 5: RAG Embeddings & Vector DB (text-embedding-3-large & Qdrant) ── -->
+        <div class="settings-section-block rag-highlight-box" style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(99, 102, 241, 0.08)); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 12px; padding: 1rem; margin-top: 1rem;">
+          <div class="settings-section-header">
+            <div class="section-badge-icon" style="background: rgba(6, 182, 212, 0.2); border: 1px solid rgba(6, 182, 212, 0.4); border-radius: 8px; font-size: 1.1rem; padding: 0.35rem;">📚</div>
+            <div class="section-title-group">
+              <div class="section-title-badge-row" style="display: flex; align-items: center; gap: 0.5rem;">
+                <h4 class="settings-section-title" style="color: #fff; font-size: 0.95rem; font-weight: 700;">RAG Knowledge Retrieval & Vector DB</h4>
+                <span class="badge-tag-cyan" style="background: rgba(6, 182, 212, 0.2); color: #67e8f9; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; border: 1px solid rgba(6, 182, 212, 0.35);">QDRANT + 3072-D</span>
+              </div>
+              <span class="settings-section-sub" style="font-size: 0.75rem; color: #94a3b8;">High-dimensional vector embeddings, HNSW index retrieval & customer lead database</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
+            <!-- Embedding Model Card -->
+            <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700;">🔎 EMBEDDINGS</span>
+                <span style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.15); color: #34d399; padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace;">ACTIVE</span>
+              </div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: #fff;">text-embedding-3-large</div>
+              <div style="font-size: 0.72rem; color: #67e8f9; margin-top: 0.2rem;">3072 Dimensions • Semantic Search</div>
+            </div>
+
+            <!-- Vector DB Card -->
+            <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700;">📚 VECTOR DB</span>
+                <span id="badge-qdrant-status" style="font-size: 0.65rem; background: rgba(6, 182, 212, 0.15); color: #38bdf8; padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace;">ONLINE</span>
+              </div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: #fff;">Qdrant Vector DB</div>
+              <div id="qdrant-info-text" style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.2rem;">Collection: mintx_knowledge (12 items)</div>
+            </div>
+
+            <!-- Database Card -->
+            <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700;">💾 CUSTOMER DB</span>
+                <span id="badge-mongo-status" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.15); color: #34d399; padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace;">MONGODB</span>
+              </div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: #fff;">MongoDB (ai_phone_assistant)</div>
+              <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.2rem;">Customers & Leads Storage</div>
+            </div>
+
+            <!-- Backend Card -->
+            <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.75rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700;">⚡ REALTIME PIPELINE</span>
+                <span style="font-size: 0.65rem; background: rgba(168, 85, 247, 0.15); color: #c084fc; padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace;">STREAMING</span>
+              </div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: #fff;">FastAPI + WebSocket</div>
+              <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 0.2rem;">Full-Duplex 24kHz PCM Stream</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Section 6: Instructions & Persona Preset ── -->
+        <div class="settings-section-block">
+          <div class="settings-section-header">
+            <div class="section-badge-icon">📋</div>
+            <div class="section-title-group">
+              <h4 class="settings-section-title">System Persona & Knowledge Prompt</h4>
+              <span class="settings-section-sub">Define assistant rules, greetings, and Tamil/English instructions</span>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="setting-label" for="setting-instruction-preset">Active Persona Preset</label>
+              <button type="button" class="btn-text-action" id="btn-settings-manage-instructions" title="Open Instructions Manager">
+                ➕ Add / Modify Personas
+              </button>
+            </div>
+            <select class="setting-select" id="setting-instruction-preset">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="setting-instructions">Current Persona Prompt Instructions</label>
+            <textarea class="setting-textarea" id="setting-instructions" rows="4" placeholder="Instruction prompt..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btn-sync-main-settings" title="Load default settings from server .env file">
+          🔄 Sync with .env Main Settings
+        </button>
+        <button type="button" class="btn-secondary" id="btn-cancel-settings">Cancel</button>
+        <button type="button" class="btn-primary" id="btn-save-settings">
+          Apply Settings 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Architecture Specifications Modal ──────────────────────────────── -->
+  <div class="modal-backdrop" id="arch-backdrop" style="display: none;">
+    <div class="modal-card modal-card-lg" id="arch-modal" role="dialog" aria-modal="true" aria-labelledby="arch-modal-title">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="arch-pulse-dot"></span>
+            <h3 class="modal-title" id="arch-modal-title">7-Layer High-Performance Architecture Stack</h3>
+          </div>
+          <span class="modal-subtitle">Official production models & pipeline for MintX Solutions AI Phone Assistant</span>
+        </div>
+        <button class="btn-icon-nav" id="btn-close-arch" aria-label="Close Architecture Modal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <div class="arch-modal-grid" id="arch-modal-grid">
+          <!-- Dynamically populated from /api/architecture -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" id="btn-close-arch-footer">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Instructions Manager Modal ─────────────────────────────────────── -->
+  <div class="modal-backdrop" id="instructions-backdrop" style="display: none;">
+    <div class="modal-card modal-card-lg" id="instructions-modal" role="dialog" aria-modal="true" aria-labelledby="instructions-modal-title">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 class="modal-title" id="instructions-modal-title">AI Instructions & Persona Studio</h3>
+          <span class="modal-subtitle">Add, modify, and switch instruction prompts for the voice assistant</span>
+        </div>
+        <button class="btn-icon-nav" id="btn-close-instructions" aria-label="Close Instructions Modal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab-btn active" id="tab-btn-list">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/>
+            <line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <circle cx="4" cy="6" r="1.5" fill="currentColor"/>
+            <circle cx="4" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="4" cy="18" r="1.5" fill="currentColor"/>
+          </svg>
+          Saved Instructions (<span id="instruction-count">0</span>)
+        </button>
+        <button type="button" class="modal-tab-btn" id="tab-btn-editor">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          <span id="tab-editor-title">➕ Add New Instruction</span>
+        </button>
+      </div>
+
+      <!-- Tab View 1: List of Saved Instructions -->
+      <div class="modal-tab-pane active" id="pane-instructions-list">
+        <div class="instructions-toolbar">
+          <span class="toolbar-hint">Select an instruction to activate it, or click <strong>Modify</strong> to change prompt rules.</span>
+          <button type="button" class="btn-primary-sm" id="btn-toolbar-add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add New Instruction
+          </button>
+        </div>
+        <div class="instructions-grid" id="instructions-grid">
+          <!-- Dynamically populated cards -->
+        </div>
+      </div>
+
+      <!-- Tab View 2: Add or Edit Form -->
+      <div class="modal-tab-pane" id="pane-instructions-editor" style="display: none;">
+        <form id="form-instruction" onsubmit="return false;">
+          <input type="hidden" id="editor-instruction-id" value="">
+          
+          <div class="form-row-grid">
+            <div class="setting-group">
+              <label class="setting-label" for="editor-name">Instruction / Persona Name *</label>
+              <input type="text" class="setting-input" id="editor-name" placeholder="e.g. Real Estate Sales Agent" required>
+            </div>
+            <div class="setting-group">
+              <label class="setting-label" for="editor-category">Category / Tag</label>
+              <select class="setting-select" id="editor-category">
+                <option value="Sales">Sales & Inquiries</option>
+                <option value="Support">Customer Support</option>
+                <option value="Tamil">Tamil</option>
+                <option value="Telephony">Telephony / Phone Calls</option>
+                <option value="Custom" selected>Custom</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label" for="editor-desc">Short Description</label>
+            <input type="text" class="setting-input" id="editor-desc" placeholder="e.g. Gathers project requirements and quotes in English & Tamil">
+          </div>
+
+          <!-- Starter Quick Template Chips -->
+          <div class="setting-group">
+            <label class="setting-label">Load Template (Optional Inspiration)</label>
+            <div class="template-chips">
+              <button type="button" class="template-chip" data-template="mintx">💼 Mintx Solutions Sales</button>
+              <button type="button" class="template-chip" data-template="support">🎧 Support & Booking</button>
+              <button type="button" class="template-chip" data-template="tamil">🌐 Tamil Specialist</button>
+              <button type="button" class="template-chip" data-template="concise">⚡ Ultra Concise</button>
+              <button type="button" class="template-chip" data-template="blank">📄 Blank / Custom</button>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="textarea-header">
+              <label class="setting-label" for="editor-prompt">System Prompt / Instructions Content *</label>
+              <span class="char-count" id="editor-char-count">0 chars</span>
+            </div>
+            <textarea class="setting-textarea editor-prompt-area" id="editor-prompt" rows="8" placeholder="Enter detailed prompt instructions for how the AI should behave, language rules, requirement gathering steps..." required></textarea>
+          </div>
+
+          <div class="editor-actions">
+            <button type="button" class="btn-secondary" id="btn-editor-cancel">Cancel</button>
+            <div class="editor-actions-right">
+              <button type="button" class="btn-secondary" id="btn-editor-save">💾 Save Instruction</button>
+              <button type="button" class="btn-primary" id="btn-editor-save-activate">🚀 Save & Activate</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Voice Training History Modal ────────────────────────────────────── -->
+  <div class="modal-backdrop" id="train-history-backdrop" style="display: none;"></div>
+  <div class="modal-card modal-card-lg" id="train-history-modal" role="dialog" aria-modal="true" style="display: none;">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 class="modal-title">Voice Training & Tuning History</h3>
+        <span class="modal-subtitle">Log of spoken corrections applied to the AI instruction rules</span>
+      </div>
+      <button class="btn-icon-nav" id="btn-close-train-history" aria-label="Close Training History">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body" id="train-history-body">
+      <!-- Direct Custom Rule Injector -->
+      <div class="train-add-rule-card" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.28); border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+          <strong style="color: #c084fc; font-size: 0.88rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>➕</span> Add / Customize New Rule in Instructions
+          </strong>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Saves directly to instructions.json</span>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" id="input-new-custom-rule" class="setting-input-field" placeholder="e.g. Always ask customer for WhatsApp number, or: Set starting greeting to: 'Vanakkam! MintX Solutions-ku welcome...'" style="flex: 1; font-size: 0.85rem; padding: 0.55rem 0.75rem; border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.35); background: rgba(0,0,0,0.35); color: #fff;">
+          <button type="button" class="btn-primary" id="btn-submit-new-rule" style="white-space: nowrap; font-size: 0.85rem; padding: 0.55rem 1rem;">
+            Save Rule 🚀
+          </button>
+        </div>
+      </div>
+
+      <div class="train-history-list" id="train-history-list">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="btn-close-train-history-footer">Close</button>
+    </div>
+  </div>
+
+  <!-- ── Quick Response Voice Correction Modal ──────────────────────────── -->
+  <div class="modal-backdrop" id="response-correct-backdrop" style="display: none;"></div>
+  <div class="modal-card" id="response-correct-modal" role="dialog" aria-modal="true" style="display: none;">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 class="modal-title">🎙️ Correct AI Response</h3>
+        <span class="modal-subtitle">Speak or type how the AI should improve its response rules</span>
+      </div>
+      <button class="btn-icon-nav" id="btn-close-response-correct" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="setting-group">
+        <label class="setting-label">AI Response to Correct:</label>
+        <div class="quoted-response-box" id="modal-target-ai-response">
+          "..."
+        </div>
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">Your Spoken Correction:</label>
+        <div class="modal-voice-record-row">
+          <button type="button" class="btn-modal-mic" id="btn-modal-mic" title="Click to Record Voice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+            <span id="modal-mic-text">🎙️ Click to Speak</span>
+          </button>
+          <span class="mic-status-hint" id="modal-mic-hint">Click to speak your correction</span>
+        </div>
+        <textarea class="setting-textarea" id="modal-correction-input" rows="3" placeholder="Speak or edit your correction here (e.g. 'Set price to Rs.15,000 with 1 week delivery')..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="btn-modal-cancel-correct">Cancel</button>
+      <button class="btn-primary" id="btn-modal-submit-correct">🚀 Apply & Update Rule</button>
+    </div>
+  </div>
+
+  <!-- ── Call Recording & Transcript Ready Modal ──────────────────────────── -->
+  <div class="modal-backdrop" id="rec-modal-backdrop" style="display: none;"></div>
+  <div class="modal-card modal-card-lg" id="rec-modal" role="dialog" aria-modal="true" style="display: none;">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <div class="rec-modal-badge">
+          <span class="rec-pulse-dot"></span>
+          RECORDING COMPILED
+        </div>
+        <h3 class="modal-title">🎙️ Call Recording & Transcript Ready</h3>
+        <span class="modal-subtitle">Full 2-way conversation audio (.wav) and formatted transcript (.txt) are ready to download</span>
+      </div>
+      <button class="btn-icon-nav" id="btn-close-rec-modal" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Recording Stats Ribbon -->
+      <div class="rec-stats-ribbon">
+        <div class="rec-stat-item">
+          <span class="rec-stat-label">Duration</span>
+          <strong class="rec-stat-val" id="rec-summary-duration">00:00</strong>
+        </div>
+        <div class="rec-stat-item">
+          <span class="rec-stat-label">Audio Format</span>
+          <strong class="rec-stat-val">16-bit PCM WAV (24kHz)</strong>
+        </div>
+        <div class="rec-stat-item">
+          <span class="rec-stat-label">Transcript Format</span>
+          <strong class="rec-stat-val">Structured Text (.txt)</strong>
+        </div>
+        <div class="rec-stat-item">
+          <span class="rec-stat-label">Dialogue Turns</span>
+          <strong class="rec-stat-val" id="rec-summary-turns">0 turns</strong>
+        </div>
+        <div class="rec-stat-item">
+          <span class="rec-stat-label">AI Voice</span>
+          <strong class="rec-stat-val" id="rec-summary-voice">Marin</strong>
+        </div>
+      </div>
+
+      <!-- Audio Player Preview Section -->
+      <div class="rec-player-section">
+        <div class="rec-section-title-row">
+          <span class="rec-section-title">🎵 Listen to Conversation Audio:</span>
+          <span class="rec-audio-size-badge" id="rec-audio-size">0 KB</span>
+        </div>
+        <div class="rec-audio-wrapper">
+          <audio id="rec-audio-element" controls preload="auto"></audio>
+        </div>
+      </div>
+
+      <!-- Formatted Transcript Preview Section -->
+      <div class="rec-transcript-section">
+        <div class="rec-section-title-row">
+          <span class="rec-section-title">📄 Formatted Text File Preview (.txt):</span>
+          <span class="rec-txt-size-badge" id="rec-txt-size">0 KB</span>
+        </div>
+        <pre class="rec-transcript-pre" id="rec-transcript-pre">Loading transcript...</pre>
+      </div>
+
+      <!-- Server Archive Status -->
+      <div class="rec-server-status" id="rec-server-status">
+        <span class="server-status-icon">☁️</span>
+        <span id="rec-server-msg">Auto-saving audio and transcript to server recordings/ folder...</span>
+      </div>
+    </div>
+
+    <div class="modal-footer rec-modal-footer">
+      <button class="btn-secondary" id="btn-rec-modal-close">Close</button>
+      <div class="rec-footer-download-btns">
+        <button class="btn-rec-download audio-btn" id="btn-download-audio-file">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18V5l12-2v13"/>
+            <circle cx="6" cy="18" r="3"/>
+            <circle cx="18" cy="16" r="3"/>
+          </svg>
+          Download Audio (.wav)
+        </button>
+        <button class="btn-rec-download text-btn" id="btn-download-txt-file">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Download Transcript (.txt)
+        </button>
+        <button class="btn-primary" id="btn-download-both">
+          📦 Download Both
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Feedback -->
+  <div class="app-toast" id="app-toast"></div>
+
+  <script src="/static/js/realtime.js?v=8.0"></script>
+
+
+</body>
+</html>

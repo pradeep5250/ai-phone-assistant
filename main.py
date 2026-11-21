@@ -8,25 +8,35 @@ Starts the FastAPI server with:
 - Audio file serving
 
 Run:
-    python main.py
-    or
+    python main.py                   
+    or                                                                                                                                                                                                                                     
     uvicorn main:app --reload
 """
 
+import sys
 import os
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from pathlib import Path
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from dotenv import load_dotenv
 
-# Load  environment variables first
+# Ensure UTF-8 output on Windows console
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+# Load environment variables first (.env.local wins)
 load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).parent / ".env.local", override=True)
 
 # Import project modules
 from database import connect_db
 from ai_assistant import AIAssistant
 from phone import router as phone_router
+from realtime_server import router as realtime_router, STATIC_DIR
+from fastapi.staticfiles import StaticFiles
 
 # ── Lifespan ────────────────────────────────────────────────────────
 
@@ -50,8 +60,79 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Include Exotel webhook routes
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/realtime":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+# Mount static files for Realtime Voice Studio UI
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# Include Exotel phone webhook routes & Realtime UI routes
 app.include_router(phone_router)
+app.include_router(realtime_router)
+
+
+# ── Root & Utility Routes ──────────────────────────────────────────
+
+@app.get("/")
+async def root():
+    """Redirect root to the interactive Realtime Voice Studio UI."""
+    return RedirectResponse(url="/realtime")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Handle browser favicon request cleanly without 404."""
+    return Response(status_code=204)
+
+
+@app.get("/agent", response_class=RedirectResponse)
+@app.get("/elevenlabs", response_class=RedirectResponse)
+@app.get("/elevenlabs/agent", response_class=RedirectResponse)
+async def redirect_agent_page():
+    """Redirect to Realtime Studio (ElevenLabs agent removed, voice enabled)."""
+    return RedirectResponse(url="/realtime")
+
+
+@app.get("/api/voice/config")
+@app.get("/api/agent/config")
+async def get_voice_config():
+    """Return active Sarvam AI / voice & main assistant configuration from .env."""
+    provider = os.getenv("TTS_PROVIDER", "sarvam")
+    sarvam_speaker = os.getenv("SARVAM_TTS_SPEAKER", "kavitha")
+    sarvam_model = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3")
+    sarvam_lang = os.getenv("SARVAM_TTS_LANGUAGE_CODE", "ta-IN")
+    sarvam_pace = float(os.getenv("SARVAM_TTS_PACE", "1.25"))
+
+    voice_id = sarvam_speaker if provider in ("sarvam", "sarvamai") else os.getenv("ELEVENLABS_VOICE_ID", "mGboHvCVOXWYeFL8KTR0")
+    model_id = sarvam_model if provider in ("sarvam", "sarvamai") else os.getenv("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5")
+
+    realtime_model = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1")
+    reasoning_model = os.getenv("OPENAI_REASONING_MODEL", os.getenv("OPENAI_MODEL", "gpt-5.6-sol"))
+    transcription_model = os.getenv("OPENAI_TRANSCRIPTION_MODEL", os.getenv("OPENAI_REALTIME_TRANSCRIPTION_MODEL", "gpt-live-transcribe"))
+
+    return {
+        "status": "ok",
+        "provider": provider,
+        "voice_id": voice_id,
+        "model": model_id,
+        "main_agent_voice_id": voice_id,
+        "main_agent_model": model_id,
+        "speaker": sarvam_speaker,
+        "language_code": sarvam_lang,
+        "pace": sarvam_pace,
+        "realtime_model": realtime_model,
+        "reasoning_model": reasoning_model,
+        "transcription_model": transcription_model,
+        "stt_model": transcription_model,
+    }
+
 
 # ── In-Memory Test Sessions ────────────────────────────────────────
 
@@ -123,12 +204,27 @@ async def test_chat(request: Request):
     except Exception as e:
         print(f"[!] Could not save to database: {e}")
 
-    return {
+    # Generate speech audio using main assistant's ElevenLabs voice ID
+    audio_filename = None
+    try:
+        audio_path = assistant.save_speech(ai_response)
+        audio_filename = os.path.basename(audio_path)
+    except Exception as e:
+        print(f"[!] Test chat voice synthesis note: {e}")
+
+    result = {
         "response": ai_response,
         "language": language,
         "intent": intent,
         "history": assistant.get_history(),
+        "voice_id": assistant.voice_id,
+        "voice_model": assistant.voice_model,
+        "tts_provider": assistant.tts_provider,
     }
+    if audio_filename:
+        result["audio_url"] = f"/audio/{audio_filename}"
+
+    return result
 
 
 @app.post("/test/reset")
@@ -156,28 +252,143 @@ async def serve_audio_main(filename: str):
 
     file_path = AUDIO_DIR / filename
     if file_path.exists():
-        return FileResponse(str(file_path), media_type="audio/mpeg")
+        media_type = "audio/wav" if filename.lower().endswith(".wav") else "audio/mpeg"
+        return FileResponse(str(file_path), media_type=media_type)
     return JSONResponse(status_code=404, content={"error": "Audio not found"})
 
 
-# ── Run Server ─────────────────────────────────────────────────────
+# ── ElevenLabs Speech Engine Upstream WebSocket ────────────────────
 
-if __name__ == "__main__":
+speech_engine_sessions: dict[str, AIAssistant] = {}
+
+@app.websocket("/ws")
+async def speech_engine_ws_route(websocket: WebSocket):
+    """
+    Upstream WebSocket endpoint for ElevenLabs Speech Engine (seng_...).
+    ElevenLabs connects here to bridge ASR (Scribe) + MintX LLM + TTS (Yazhini).
+    """
+    from elevenlabs.speech_engine.session import SpeechEngineSession
+    from elevenlabs.speech_engine.types import ConversationMessage
+
+    await websocket.accept()
+    print("\n[+] ElevenLabs Speech Engine connected at /ws!")
+
+    session = SpeechEngineSession(websocket, debug=True)
+    conv_id = "default"
+
+    async def on_init(conversation_id: str):
+        nonlocal conv_id
+        conv_id = conversation_id
+        print(f"[ElevenLabs Init] Conversation ID: {conversation_id}")
+        if conv_id not in speech_engine_sessions:
+            speech_engine_sessions[conv_id] = AIAssistant(call_id=f"el_{conv_id}")
+
+    async def on_transcript(transcript: list[ConversationMessage]):
+        if not transcript:
+            return
+        user_text = transcript[-1].content.strip()
+        print(f"\n🗣️ [ElevenLabs Speech Engine User]: {user_text}")
+        if not user_text:
+            return
+        if conv_id not in speech_engine_sessions:
+            speech_engine_sessions[conv_id] = AIAssistant(call_id=f"el_{conv_id}")
+        bot = speech_engine_sessions[conv_id]
+        reply = bot.chat(user_text)
+        print(f"🤖 [MintX Agent Response]: {reply}")
+        await session.send_response(reply)
+
+    async def on_close():
+        print(f"[-] ElevenLabs Speech Engine session closed: {conv_id}")
+        if conv_id in speech_engine_sessions:
+            del speech_engine_sessions[conv_id]
+
+    session.on("init", on_init)
+    session.on("user_transcript", on_transcript)
+    session.on("close", on_close)
+
+    try:
+        await session.run()
+    except WebSocketDisconnect:
+        print(f"[-] ElevenLabs WebSocket disconnected: {conv_id}")
+    except Exception as e:
+        print(f"[!] ElevenLabs Speech Engine error: {e}")
+
+
+def main():
+    """Main application entry point for Mintx Solutions AI Phone Assistant."""
     host = os.getenv("SERVER_HOST", "0.0.0.0")
     port = int(os.getenv("SERVER_PORT", "8000"))
+    display_host = "localhost" if host == "0.0.0.0" else host
 
-    print("\n" + "=" * 50)
-    print("  AI Phone Call Assistant")
-    print("=" * 50)
-    print(f"  Server:  http://{host}:{port}")
-    print(f"  Health:  http://{host}:{port}/health")
-    print(f"  Test:    http://{host}:{port}/test/chat")
-    print(f"  Docs:    http://{host}:{port}/docs")
-    print("=" * 50 + "\n")
+    model = os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime-2.1")
+    voice = os.getenv("OPENAI_VOICE", "sarvam")
+    stt_model = os.getenv("OPENAI_TRANSCRIPTION_MODEL", os.getenv("OPENAI_REALTIME_TRANSCRIPTION_MODEL", "gpt-transcribe"))
+    reasoning_model = os.getenv("OPENAI_REASONING_MODEL", os.getenv("OPENAI_MODEL", "gpt-5.6-sol"))
+
+    # Check active instruction persona
+    active_inst_name = "Default (Mintx Solutions)"
+    try:
+        from instructions import get_active_instruction
+        active_inst = get_active_instruction()
+        if active_inst and active_inst.get("name"):
+            active_inst_name = f"{active_inst.get('name')} [{active_inst.get('category', 'Custom')}]"
+    except Exception:
+        pass
+
+    sarvam_speaker = os.getenv("SARVAM_TTS_SPEAKER", "kavitha")
+    sarvam_model = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3")
+    tts_provider = os.getenv("TTS_PROVIDER", "sarvam")
+
+    print("\n" + "=" * 65)
+    print("  🎙️  MINTX SOLUTIONS AI — MULTI-MODEL PHONE ASSISTANT  🎙️")
+    print("=" * 65)
+    print(f"  🧠 Reasoning / Requirements: {reasoning_model}")
+    print(f"  🎙️ Realtime Conversation:   {model}")
+    print(f"  🗣️ Speech Transcription:     {stt_model}")
+    print(f"  🔊 Voice Output Engine:      Sarvam AI ({sarvam_model} • {sarvam_speaker})")
+    print(f"  🎭 Main Persona Voice:       Yazhini ({sarvam_speaker})")
+    print(f"  📋 Active System Persona:    {active_inst_name}")
+
+    # Verify OpenAI API Key and Credit Quota
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+    key_status_str = "Not Configured"
+    is_quota_exhausted = False
+    if openai_key:
+        try:
+            from openai import OpenAI
+            _client = OpenAI(api_key=openai_key)
+            _client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "ping"}],
+                max_tokens=1
+            )
+            key_status_str = "Active (Credits Available ✅)"
+        except Exception as e:
+            err_text = str(e)
+            if "insufficient_quota" in err_text or "credit_balance_exhausted" in err_text or "429" in err_text:
+                key_status_str = "EXHAUSTED (0 Credits Remaining ❌)"
+                is_quota_exhausted = True
+            else:
+                key_status_str = f"Error ({err_text[:35]})"
+    print(f"  🔑 OpenAI Key Status:    {key_status_str}")
+
+    if is_quota_exhausted:
+        print("\n  ⚠️  ATTENTION: OPENAI ACCOUNT HAS NO REMAINING CREDITS!")
+        print("  👉 The Realtime Model will not be able to respond until credits are added.")
+        print("  👉 Add credits at: https://platform.openai.com/settings/organization/billing/")
+        print("  👉 Or update OPENAI_API_KEY in .env or via Web UI Settings.")
+
+    print(f"  🌐 Studio UI:        http://{display_host}:{port}/realtime")
+    print(f"  👉 Direct Link:      http://localhost:{port}")
+    print("=" * 60 + "\n")
 
     uvicorn.run(
         "main:app",
         host=host,
         port=port,
-        reload=True,
+        reload=False,
     )
+
+
+if __name__ == "__main__":
+    main()

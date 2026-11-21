@@ -23,15 +23,17 @@ from voice import (
     record_audio_press_enter, speech_to_text, speak, text_to_speech,
     DEFAULT_VOICE, SUPPORTED_VOICES, REALTIME_SESSION_CONFIG
 )
+from instructions import get_active_starting_greeting
 
 
 def main():
-    selected_voice = os.getenv("OPENAI_VOICE", DEFAULT_VOICE)
+    sarvam_speaker = os.getenv("SARVAM_TTS_SPEAKER", "kavitha")
+    selected_voice = sarvam_speaker
     mode = os.getenv("OPENAI_MODE", "realtime")
 
     print("=" * 65)
     print(f"  🎙️  AI Assistant — Voice Conversation Mode ({mode.upper()}) 🎙️")
-    print(f"  🔊 Active Voice: {selected_voice}")
+    print(f"  🔊 Main Agent Voice: {selected_voice} (Sarvam AI bulbul:v3)")
     print("=" * 65)
     print("Instructions:")
     print("  1. Press [ENTER] to start recording your voice.")
@@ -52,7 +54,7 @@ def main():
     assistant = AIAssistant(call_id="voice_terminal_session")
     voice_output_enabled = True
 
-    initial_greeting = "வணக்கம்! நான் உங்களுக்கு எப்படி உதவ முடியும்?" if "ta" in selected_voice or selected_voice in ("pallavi", "valluvar") else "Hello! How can I help you today?"
+    initial_greeting = get_active_starting_greeting()
     print(f"\n[AI Assistant]: {initial_greeting}")
     try:
         speak(initial_greeting, voice=selected_voice, play_aloud=voice_output_enabled)
@@ -154,9 +156,9 @@ def main():
             response = assistant.chat(user_text)
             print(f"\n🤖 [AI Assistant]: {response}")
 
-            # Speak response aloud
+            # Speak response aloud using ElevenLabs voice ID
             if voice_output_enabled:
-                print("🔊 Playing AI voice response...")
+                print(f"🔊 Playing AI voice response ({selected_voice})...")
                 speak(response, voice=selected_voice, play_aloud=True)
 
         except (KeyboardInterrupt, EOFError):

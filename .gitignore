@@ -24,3 +24,8 @@ Thumbs.db
 audio_files/
 *.mp3
 *.wav
+
+.env.local
+.env
+scratch/
+

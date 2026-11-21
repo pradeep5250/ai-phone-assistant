@@ -12,3 +12,5 @@ pygame
 websockets
 edge-tts
 gTTS
+elevenlabs
+qdrant-client

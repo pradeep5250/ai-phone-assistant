@@ -28,13 +28,24 @@ def connect_db():
     uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
     database_name = os.getenv("MONGODB_DATABASE", "ai_phone_assistant")
 
-    client = MongoClient(uri)
-    db = client[database_name]
+    try:
+        client = MongoClient(uri, serverSelectionTimeoutMS=2000)
+        db = client[database_name]
 
-    # Test connection
-    client.admin.command("ping")
-    print(f"[OK] Connected to MongoDB: {database_name}")
+        # Test connection
+        client.admin.command("ping")
+        print(f"[OK] Connected to MongoDB: {database_name}")
+        return db
+    except Exception as e:
+        print(f"[!] MongoDB connection error: {e}")
+        return None
 
+
+def get_db():
+    """Get active MongoDB instance, auto-connecting if needed."""
+    global db
+    if db is None:
+        return connect_db()
     return db
 
 
@@ -163,6 +174,99 @@ def save_appointment(appointment_data: dict) -> str:
     """
     appointment_data["created_at"] = datetime.now(timezone.utc)
     appointment_data["status"] = appointment_data.get("status", "booked")
-    result = db.appointments.insert_one(appointment_data)
+    database = get_db()
+    if database is None:
+        print("[!] DB offline: appointment not saved")
+        return "offline"
+    result = database.appointments.insert_one(appointment_data)
     print(f"[APPT] Appointment saved: {result.inserted_id}")
     return str(result.inserted_id)
+
+
+# ── Customer Lead Operations (Immediate Real-time Per-Answer Updates) ─────────
+
+def save_or_update_lead(call_id: str, fields: dict) -> dict:
+    """
+    Immediately creates or updates a customer lead record in MongoDB after every answer.
+    Matches schema:
+    {
+      "name": "",
+      "business_name": "",
+      "service": "",
+      "phone": "",
+      "requirement": "",
+      "language": "",
+      "created_at": "",
+      "status": "new"
+    }
+    """
+    database = get_db()
+    clean_fields = {}
+    valid_keys = {"name", "business_name", "service", "phone", "requirement", "language", "status"}
+    for k, v in fields.items():
+        if k in valid_keys and v is not None and str(v).strip():
+            clean_fields[k] = str(v).strip()
+
+    if not clean_fields:
+        return {}
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    clean_fields["updated_at"] = now_iso
+
+    if database is None:
+        print(f"💾 [LEAD MEMORY ONLY] Call {call_id}: Updated {list(clean_fields.keys())}")
+        return clean_fields
+
+    try:
+        if call_id:
+            query = {"call_id": call_id}
+        elif "phone" in clean_fields and clean_fields["phone"]:
+            query = {"phone": clean_fields["phone"]}
+        else:
+            return clean_fields
+
+        default_schema = {
+            "call_id": call_id,
+            "name": "",
+            "business_name": "",
+            "service": "",
+            "requirement": "",
+            "language": "ta",
+            "status": "new",
+            "created_at": now_iso,
+        }
+        # Only include phone in insert if actually provided to avoid unique constraint collisions on empty strings
+        if "phone" in clean_fields and clean_fields["phone"]:
+            default_schema["phone"] = clean_fields["phone"]
+
+        set_on_insert = {k: v for k, v in default_schema.items() if k not in clean_fields}
+
+        update_payload = {
+            "$set": clean_fields,
+            "$setOnInsert": set_on_insert
+        }
+
+        database.leads.update_one(query, update_payload, upsert=True)
+        try:
+            cust_query = {"phone": clean_fields["phone"]} if clean_fields.get("phone") else query
+            database.customers.update_one(cust_query, update_payload, upsert=True)
+        except Exception:
+            pass
+
+        for k, v in clean_fields.items():
+            if k != "updated_at":
+                print(f"[DB SAVED] {k} = {v}")
+
+        return clean_fields
+    except Exception as e:
+        print(f"[!] Error updating lead in MongoDB: {e}")
+        return clean_fields
+
+
+def get_lead(call_id: str) -> dict:
+    """Retrieve the customer lead record by call_id or phone."""
+    database = get_db()
+    if database is None:
+        return {}
+    lead = database.leads.find_one({"call_id": call_id}) or database.customers.find_one({"call_id": call_id})
+    return lead or {}

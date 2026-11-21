@@ -28,13 +28,16 @@ def main():
     print("Commands:")
     print("  exit / quit   - End the conversation")
     print("  /reset        - Clear history and start a new conversation")
+    print("  /speak        - Hear the assistant speak its last response aloud")
     print("  /summary      - Summarize current conversation")
     print("  /history      - View full conversation history")
     print("=" * 60)
-    print("Supported Languages: English & Tamil\n")
+    print("Supported Languages: English & Tamil")
 
     assistant = AIAssistant(call_id="terminal_session")
-    print("AI Assistant: Hello! How can I help you today?")
+    print(f"🔊 Main Agent Voice ID: {assistant.voice_id} ({assistant.voice_model})")
+    print(f"⚡ TTS Provider:        {assistant.tts_provider}\n")
+    print("AI Assistant: Welcome to MintX Solutions. How can I help?")
 
     while True:
         try:
@@ -44,13 +47,13 @@ def main():
                 continue
 
             if user_input.lower() in ("exit", "quit", "q", "/exit"):
-                print("\n[AI Assistant]: Thank you for chatting! Goodbye.")
+                print("\n[AI Assistant]: Thank you! Unga details save panniten. Team contact pannuvanga.")
                 break
 
             if user_input.lower() == "/reset":
                 assistant = AIAssistant(call_id="terminal_session")
                 print("\n[System]: Conversation reset. Starting fresh.")
-                print("AI Assistant: Hello! How can I help you today?")
+                print("AI Assistant: Welcome to MintX Solutions. How can I help?")
                 continue
 
             if user_input.lower() == "/summary":

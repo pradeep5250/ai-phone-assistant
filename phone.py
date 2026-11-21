@@ -28,6 +28,7 @@ from database import (
     save_call, update_call, save_conversation,
     save_customer, save_appointment,
 )
+from instructions import get_active_starting_greeting
 
 load_dotenv()
 
@@ -98,9 +99,9 @@ async def handle_incoming_call(
     # Save/update customer
     save_customer({"phone_number": caller_number})
 
-    # Generate greeting audio
-    greeting = "Hi! I'm an AI assistant. How can I help you today?"
-    greeting_audio_path = text_to_speech_save(greeting)
+    # Generate greeting audio using assistant's ElevenLabs voice ID
+    greeting = get_active_starting_greeting()
+    greeting_audio_path = assistant.save_speech(greeting)
     greeting_filename = os.path.basename(greeting_audio_path)
 
     # Add greeting to conversation history
@@ -172,8 +173,14 @@ async def handle_gather(
     # Handle empty/no speech
     if not caller_text or caller_text.strip() == "":
         print("[...] No speech detected")
-        # Ask the caller to speak again
-        retry_audio = text_to_speech_save("I didn't catch that. Could you please say that again?")
+        current_lang = getattr(assistant, "current_lang", "tunglish")
+        if current_lang == "ta":
+            retry_text = "சரியாக கேட்கவில்லை. தயவுசெய்து மீண்டும் கூறுங்கள்?"
+        elif current_lang == "en":
+            retry_text = "I couldn't hear you clearly. Could you please repeat that?"
+        else:
+            retry_text = "Kekkala, marubadiyum sollunga?"
+        retry_audio = assistant.save_speech(retry_text)
         retry_filename = os.path.basename(retry_audio)
         gather_url = f"{PUBLIC_URL}/exotel/gather?call_sid={call_sid}&caller={caller}"
         audio_url = f"{PUBLIC_URL}/audio/{retry_filename}"
@@ -200,7 +207,7 @@ async def handle_gather(
         })
 
         if HUMAN_AGENT_NUMBER:
-            transfer_audio = text_to_speech_save(ai_response)
+            transfer_audio = assistant.save_speech(ai_response)
             transfer_filename = os.path.basename(transfer_audio)
             audio_url = f"{PUBLIC_URL}/audio/{transfer_filename}"
             return exoml_response(f"""
@@ -208,9 +215,14 @@ async def handle_gather(
   <Dial>{HUMAN_AGENT_NUMBER}</Dial>
 """)
         else:
-            no_agent = text_to_speech_save(
-                "Sorry, no human agent is available right now. Please try again later."
-            )
+            current_lang = getattr(assistant, "current_lang", "tunglish")
+            if current_lang == "ta":
+                no_agent_text = "மன்னிக்கவும், எங்கள் team இப்போது கிடைக்கவில்லை. சிறிது நேரம் கழித்து அழைக்கவும்."
+            elif current_lang == "en":
+                no_agent_text = "I'm sorry, our team is not available right now. Please call back later."
+            else:
+                no_agent_text = "Sorry, namma team ippo available illa. Konjam neram kazhichu call pannunga."
+            no_agent = assistant.save_speech(no_agent_text)
             no_agent_filename = os.path.basename(no_agent)
             audio_url = f"{PUBLIC_URL}/audio/{no_agent_filename}"
             return exoml_response(f"""
@@ -218,8 +230,8 @@ async def handle_gather(
   <Hangup />
 """)
 
-    # ── Step 4: Convert AI response to speech ──
-    response_audio_path = text_to_speech_save(ai_response)
+    # ── Step 4: Convert AI response to speech using assistant's ElevenLabs voice ──
+    response_audio_path = assistant.save_speech(ai_response)
     response_filename = os.path.basename(response_audio_path)
 
     # Save conversation progress
@@ -282,6 +294,47 @@ async def handle_call_status(
             "messages": assistant.get_history(),
         })
 
+        # Export conversation transcript as formatted .txt file
+        try:
+            from pathlib import Path
+            import datetime
+            rec_dir = Path(__file__).parent / "recordings"
+            rec_dir.mkdir(parents=True, exist_ok=True)
+            t_now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            txt_file = rec_dir / f"phone_transcript_{call_sid}_{t_now}.txt"
+            lines = [
+                "=" * 75,
+                "MINTX SOLUTIONS AI — PHONE CALL TRANSCRIPT & LOG",
+                "=" * 75,
+                f"Date & Time    : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                f"Call SID       : {call_sid}",
+                f"Caller Number  : {caller_number}",
+                f"Call Duration  : {duration} seconds",
+                f"Status         : {status}",
+                f"Language       : {language}",
+                f"Call Summary   : {summary}",
+                "=" * 75,
+                "",
+                "---------------------------------------------------------------------------",
+                "CONVERSATION DIALOGUE",
+                "---------------------------------------------------------------------------",
+            ]
+            for m in history:
+                role = "CALLER" if m.get("role") == "user" else "AI ASSISTANT"
+                lines.append(f"\n{role}:")
+                lines.append(f"\"{m.get('message', '')}\"")
+            lines.extend([
+                "",
+                "=" * 75,
+                "END OF TRANSCRIPT",
+                "=" * 75,
+            ])
+            with open(txt_file, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            print(f"[Recordings] Saved phone transcript: {txt_file}")
+        except Exception as e:
+            print(f"[!] Could not save text transcript: {e}")
+
         # Clean up
         del active_calls[call_sid]
 
@@ -308,7 +361,8 @@ async def serve_audio(filename: str):
     from voice import AUDIO_DIR
     file_path = AUDIO_DIR / filename
     if file_path.exists():
-        return FileResponse(str(file_path), media_type="audio/mpeg")
+        media_type = "audio/wav" if filename.lower().endswith(".wav") else "audio/mpeg"
+        return FileResponse(str(file_path), media_type=media_type)
     return Response(content="Audio not found", status_code=404)
 
 
