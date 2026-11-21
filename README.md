@@ -1,4 +1,4 @@
-# 🤖 MintX Solutions — AI Customer Care Assistant ("Yazhini")
+# 🤖 AI Customer Care Assistant 
 
 > **A professional, friendly, attentive female AI customer-care executive for MintX Solutions, Salem, Tamil Nadu. Built with OpenAI GPT Realtime / GPT-5.6 Reasoning, Vector RAG retrieval (text-embedding-3-small), Sarvam.ai Indian TTS (bulbul:v3), Exotel telephony, and MongoDB.**
 
